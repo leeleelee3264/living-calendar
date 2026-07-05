@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>리빙 캘린더 · Living Calendar</title>
+<style>
+  :root{
+    --bg:#faf6f0; --card:#ffffff; --ink:#3a3540; --sub:#9a8fa3;
+    --line:#f0e9e2; --accent:#ffb26b; --cellbg:#faf8f5; --cellToday:#fff7ee;
+    --shadow:0 2px 12px rgba(90,70,50,.06);
+  }
+  body.dark{
+    --bg:#16141b; --card:#211e2a; --ink:#eae4f0; --sub:#8d8398;
+    --line:#332e3f; --accent:#e09a55; --cellbg:#2a2635; --cellToday:#3b3143;
+    --shadow:0 2px 12px rgba(0,0,0,.25);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{font-size:16px;}
+  @media(min-width:860px){ html{font-size:17px;} }
+  @media(min-width:1150px){ html{font-size:19px;} }
+  body{margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;
+    transition:background .4s,color .4s;}
+
+  .app{display:grid; grid-template-columns:1fr; gap:14px;
+    max-width:560px; margin:0 auto; padding:14px 14px 40px;
+    transition:transform 2s ease;}
+
+  /* night screen-off: black overlay with a faint wandering clock (burn-in protection) */
+  #sleep{position:fixed; inset:0; background:#000; z-index:90; display:none;
+    align-items:center; justify-content:center; cursor:pointer;}
+  #sleep.on{display:flex;}
+  #sleepClk{font-size:4.2rem; font-weight:700; color:#35353d; letter-spacing:.04em;
+    transition:transform 3s ease;}
+  @media(min-width:860px){
+    .app{grid-template-columns:minmax(360px,2fr) 3fr; max-width:1480px;
+      min-height:100vh; min-height:100dvh;
+      align-content:center; align-items:center;
+      column-gap:28px; padding:24px 30px;}
+  }
+
+  .topRow{display:flex; align-items:center; gap:6px; margin-bottom:10px;}
+  .topRow h1{font-size:.85rem; margin:0; flex:1; color:var(--sub); font-weight:700; letter-spacing:.02em;}
+  .hbtn{border:1px solid var(--line); background:var(--card); border-radius:11px;
+    padding:7px 11px; font-size:.85rem; color:var(--ink); cursor:pointer;}
+
+  .clock{padding:4px 4px 12px;}
+  .clock .time{font-size:3.6rem; font-weight:800; letter-spacing:.02em; line-height:1;}
+  .clock .date{font-size:1.05rem; color:var(--sub); margin-top:6px; font-weight:600;}
+
+  .card{background:var(--card); border-radius:18px; padding:16px; box-shadow:var(--shadow);
+    transition:background .4s;}
+  .cardHead{display:flex; align-items:baseline; gap:8px;}
+  .cardHead h2{font-size:1rem; margin:0; flex:1;}
+  .prog{font-size:.9rem; color:var(--sub); font-weight:700;}
+  .pbar{height:8px; border-radius:99px; background:var(--line); margin:10px 0 4px; overflow:hidden;}
+  .pbar i{display:block; height:100%; background:linear-gradient(90deg,#7bc47f,#a8d5ab);
+    border-radius:99px; transition:width .3s;}
+
+  .chore{display:flex; align-items:center; gap:12px; padding:13px 2px;
+    border-bottom:1px dashed var(--line); cursor:pointer;}
+  .chore:last-of-type{border-bottom:none;}
+  .chore input{width:25px; height:25px; accent-color:#7bc47f; flex:none; cursor:pointer;}
+  .chore .emoji{font-size:1.4rem; flex:none;}
+  .cname{flex:1; font-size:1rem; line-height:1.25;}
+  .cname small{display:block; color:var(--sub); font-size:.72rem; margin-top:1px; font-weight:600;}
+  .chore.done .cname{text-decoration:line-through; opacity:.4;}
+  .chip{font-size:.78rem; padding:4px 11px; border-radius:999px; border:1.5px solid;
+    white-space:nowrap; flex:none; font-weight:700;}
+  .chip.both{background:linear-gradient(90deg,#6d8dff1e,#ff92ac1e);
+    color:#9a8aa8; border-color:#d5c8e0;}
+  .chip.tap{cursor:pointer;}
+  .hint{font-size:.72rem; color:var(--sub); margin-top:10px; line-height:1.5;}
+
+  .tabRow{display:flex; align-items:center; gap:6px; margin-bottom:12px;}
+  .tab{border:1px solid var(--line); background:var(--card); border-radius:11px;
+    padding:8px 16px; font-size:.9rem; color:var(--sub); cursor:pointer; font-weight:700;}
+  .tab.on{background:var(--accent); border-color:var(--accent); color:#4d3418;}
+  .tabRow .sp{flex:1;}
+
+  /* week strip */
+  .weekWrap{overflow-x:auto; margin:0 -4px; padding:0 4px;}
+  .week{display:grid; grid-template-columns:repeat(7,1fr); gap:7px; min-width:530px;}
+  .wcol{background:var(--cellbg); border-radius:13px; padding:7px 6px 8px; min-height:120px;
+    cursor:pointer; border:2px solid transparent;}
+  .wcol.today{border-color:var(--accent); background:var(--cellToday);}
+  .whead{text-align:center; font-size:.7rem; font-weight:700; color:var(--sub); margin-bottom:5px;}
+  .whead b{display:block; font-size:1.05rem; color:var(--ink);}
+  .whead.sun, .whead.sun b{color:#e06666;}
+  .whead.sat, .whead.sat b{color:#6a86e0;}
+  .wItem{border-radius:9px; padding:4px 6px; font-size:.68rem; line-height:1.25; margin-top:4px;
+    border-left:3px solid transparent;}
+  .wItem small{display:block; opacity:.85; font-weight:800; margin-top:1px;}
+  .wItem.done{opacity:.38; text-decoration:line-through;}
+
+  /* upcoming */
+  .uRow{display:flex; align-items:center; gap:11px; padding:11px 2px;
+    border-bottom:1px dashed var(--line);}
+  .uRow:last-child{border-bottom:none;}
+  .uRow .emoji{font-size:1.25rem; flex:none;}
+  .dday{font-weight:800; font-size:.82rem; color:#e8964f; flex:none; min-width:3.2em; text-align:right;}
+
+  /* month calendar */
+  .calNav{display:flex; align-items:center; gap:6px; margin-bottom:10px;}
+  .calNav h2{flex:1; font-size:1.02rem; margin:0;}
+  .calNav button{border:1px solid var(--line); background:var(--card); border-radius:10px;
+    padding:5px 12px; font-size:.9rem; cursor:pointer; color:var(--ink);}
+  .cal{display:grid; grid-template-columns:repeat(7,1fr); gap:4px;}
+  .wdh{text-align:center; font-size:.7rem; color:var(--sub); font-weight:700; padding:3px 0;}
+  .wdh.sun{color:#e06666;} .wdh.sat{color:#6a86e0;}
+  .cell{min-height:58px; border-radius:10px; background:var(--cellbg); padding:4px 3px 3px;
+    font-size:.72rem; cursor:pointer; border:2px solid transparent;}
+  .cell.empty{background:transparent; cursor:default;}
+  .cell.today{border-color:var(--accent); background:var(--cellToday);}
+  .dn{font-weight:700; color:var(--sub);}
+  .dn.sun{color:#e06666;} .dn.sat{color:#6a86e0;}
+  .minis{display:flex; flex-wrap:wrap; gap:2px; margin-top:2px;}
+  .mini{font-size:.84rem; line-height:1.25; padding:0 1px 2px; background-size:100% 3px !important;}
+  .legend{margin-top:12px; border-top:1px dashed var(--line); padding-top:10px;
+    display:flex; flex-wrap:wrap; gap:6px 12px; font-size:.74rem; color:var(--sub);}
+  .legend .li{display:flex; align-items:center; gap:4px;}
+  .note{font-size:.72rem; color:var(--sub); margin-top:10px; line-height:1.5;}
+
+  .rule{padding:10px 2px; border-bottom:1px dashed var(--line); font-size:.9rem; line-height:1.55;}
+  .rule:last-child{border-bottom:none;}
+  .rule b{display:block; margin-bottom:2px;}
+  .rule span{color:var(--sub);}
+
+  /* bottom sheet */
+  #sheetWrap{position:fixed; inset:0; background:rgba(30,24,40,.42); opacity:0;
+    pointer-events:none; transition:opacity .2s; z-index:50;}
+  #sheetWrap.open{opacity:1; pointer-events:auto;}
+  #sheet{position:absolute; left:0; right:0; bottom:0; background:var(--card);
+    border-radius:22px 22px 0 0; padding:18px 20px calc(22px + env(safe-area-inset-bottom));
+    max-width:640px; margin:0 auto; transform:translateY(100%); transition:transform .22s;
+    max-height:78vh; overflow-y:auto;}
+  #sheetWrap.open #sheet{transform:translateY(0);}
+  #sheet h3{margin:0 0 4px; font-size:1.05rem;}
+
+  /* dialogs */
+  dialog{border:none; border-radius:18px; padding:0; width:min(92vw,460px);
+    max-height:86vh; color:var(--ink); background:var(--card);}
+  dialog::backdrop{background:rgba(30,24,40,.45);}
+  .dlgIn{padding:18px;}
+  .dlgIn h2{margin:0 0 6px; font-size:1.1rem;}
+  .sec{font-size:.76rem; font-weight:800; color:#b07aa6; margin:16px 0 4px;
+    text-transform:uppercase; letter-spacing:.03em;}
+  .frow{display:flex; align-items:center; gap:8px; padding:5px 0; font-size:.87rem; flex-wrap:wrap;}
+  .frow label{flex:1; min-width:90px; color:var(--sub);}
+  .frow select,.frow input[type=date],.frow input[type=text]{
+    border:1px solid var(--line); border-radius:9px; padding:6px 8px; font-size:.86rem;
+    background:var(--card); color:var(--ink);}
+  .frow input[type=text]{width:110px;}
+  .frow input[type=color]{border:none; width:30px; height:30px; padding:0; background:none;}
+  .secCard{border:1px solid var(--line); border-radius:14px; padding:2px 12px 10px; margin-top:12px;}
+  .secCard .sec{margin-top:12px;}
+  .subNote{font-size:.76rem; color:var(--sub); margin:4px 0 0; line-height:1.5;}
+  .seg{display:inline-flex; border:1.5px solid var(--line); border-radius:11px; overflow:hidden; flex:none;}
+  .seg button{border:none; background:transparent; padding:7px 12px; font-size:.83rem;
+    color:var(--sub); cursor:pointer; font-family:inherit;}
+  .seg button.on{background:var(--accent); color:#4d3418; font-weight:800;}
+  .dayb{border:1.5px solid var(--line); background:transparent; border-radius:9px; padding:6px 9px;
+    font-size:.82rem; color:var(--sub); cursor:pointer; font-family:inherit;}
+  .dayb.on{background:#ffb26b33; border-color:var(--accent); color:var(--ink); font-weight:800;}
+  button.chip{cursor:pointer; font-family:inherit;}
+  .dlgBtns{display:flex; gap:8px; margin-top:16px;}
+  .dlgBtns button{flex:1; border-radius:12px; padding:10px; font-size:.92rem; cursor:pointer;
+    border:1px solid var(--line); background:var(--card); color:var(--ink);}
+  .dlgBtns .primary{background:var(--accent); border-color:var(--accent); font-weight:700; color:#4d3418;}
+  .resetLink{display:block; text-align:center; margin:12px auto 0; font-size:.76rem;
+    color:#c07777; background:none; border:none; cursor:pointer;}
+  .help{font-size:.72rem; color:var(--sub); line-height:1.45; margin:2px 0 0;}
+
+  /* wide screens (wall tablet): scale up so content fills the height */
+  @media(min-width:860px){
+    .clock{padding:8px 4px 20px;}
+    .clock .time{font-size:4.6rem;}
+    .clock .date{font-size:1.15rem;}
+    .chore{padding:15px 2px;}
+    .wcol{min-height:max(160px, 26vh);}
+    .whead b{font-size:1.15rem;}
+    .wItem{font-size:.72rem; padding:5px 7px;}
+    .uRow{padding:13px 2px;}
+    #upCard{margin-top:16px !important;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="left">
+    <div class="topRow">
+      <h1 id="hTitle">리빙 캘린더</h1>
+      <button class="hbtn" id="btnLang">EN</button>
+      <button class="hbtn" id="btnRules">ℹ️</button>
+      <button class="hbtn" id="btnFull">⛶</button>
+      <button class="hbtn" id="btnSet">⚙️</button>
+    </div>
+    <div class="clock">
+      <div class="time" id="clkTime"></div>
+      <div class="date" id="clkDate"></div>
+    </div>
+    <section class="card" id="todayCard"></section>
+    <div class="hint" id="footNote"></div>
+  </aside>
+
+  <main class="right">
+    <div class="tabRow">
+      <button class="tab" id="tabWeek"></button>
+      <button class="tab" id="tabMonth"></button>
+      <span class="sp"></span>
+    </div>
+
+    <section id="weekPane">
+      <div class="card">
+        <div class="weekWrap"><div class="week" id="weekGrid"></div></div>
+      </div>
+      <div class="card" id="upCard" style="margin-top:14px;"></div>
+    </section>
+
+    <section id="monthPane" class="card" hidden>
+      <div class="calNav">
+        <h2 id="calTitle"></h2>
+        <button id="btnCalToday"></button>
+        <button id="btnPrev">‹</button>
+        <button id="btnNext">›</button>
+      </div>
+      <div class="cal" id="calGrid"></div>
+      <div class="legend" id="calLegend"></div>
+      <div class="note" id="calNote"></div>
+    </section>
+  </main>
+
+</div>
+
+<div id="sleep"><div id="sleepClk"></div></div>
+<div id="sheetWrap"><div id="sheet"></div></div>
+<dialog id="dlgRules"></dialog>
+<dialog id="dlg"></dialog>
+
+<script>
+'use strict';
+const DAY = 86400000;
+const $ = s => document.querySelector(s);
+const WD_KO = ['일','월','화','수','목','금','토'];
+const WD_EN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const WD_EN_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MON_EN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const NTH = {ko:['첫째','둘째','셋째','넷째'], en:['1st','2nd','3rd','4th']};
+
+const CHORES = {
+  trashBathroom:{emoji:'🗑️', ko:'화장실 쓰레기통 비우기', en:'Empty bathroom bin',   freq:{ko:'매일',en:'Daily'}, daily:true},
+  trashRecycle: {emoji:'♻️', ko:'쓰레기 · 재활용 버리기', en:'Trash & recycling',    freq:{ko:'매일',en:'Daily'}, daily:true},
+  vacuum:       {emoji:'🧹', ko:'청소기 돌리기',          en:'Vacuuming',             freq:{ko:'매일',en:'Daily'}, daily:true},
+  laundry:      {emoji:'🧺', ko:'빨래',                   en:'Laundry',               freq:{ko:'주 3회 · 돌리기~개기까지',en:'3×/wk · wash to fold'}},
+  mop:          {emoji:'🧽', ko:'물걸레질',               en:'Mopping',               freq:{ko:'주 1회',en:'Weekly'}},
+  bathroomClean:{emoji:'🚽', ko:'화장실 청소',            en:'Bathroom deep clean',   freq:{ko:'2주에 1번 · 번갈아',en:'Every 2 wks · alternate'}},
+  bedding:      {emoji:'🛏️', ko:'침구 갈기 · 세탁',       en:'Change & wash bedding', freq:{ko:'2주에 1번 · 같이',en:'Every 2 wks · together'}},
+  fridge:       {emoji:'🧊', ko:'냉장고 청소',            en:'Fridge clean-out',      freq:{ko:'월 1회 · 번갈아',en:'Monthly · alternate'}},
+  washerClean:  {emoji:'🌀', ko:'세탁기 통세척',          en:'Washer tub clean',      freq:{ko:'월 1회 · 번갈아',en:'Monthly · alternate'}},
+};
+const UPCOMING_IDS = ['mop','bathroomClean','bedding','fridge','washerClean'];
+
+const STR = {
+  title:{ko:'리빙 캘린더', en:'Living Calendar'},
+  today:{ko:'오늘 할 일', en:"Today's Chores"},
+  together:{ko:'같이', en:'Together'},
+  allDone:{ko:'🎉 오늘 끝!', en:'🎉 All done!'},
+  rules:{ko:'그 외 규칙', en:'Other Rules'},
+  week:{ko:'이번 주', en:'This Week'},
+  month:{ko:'달력', en:'Calendar'},
+  upcoming:{ko:'다가오는 일', en:'Coming Up'},
+  dToday:{ko:'오늘', en:'Today'},
+  dTomorrow:{ko:'내일', en:'Tmrw'},
+  todayBtn:{ko:'오늘', en:'Today'},
+  swapHint:{ko:'💡 이름표를 누르면 그날만 담당을 맞바꿀 수 있어요 · 체크 표시는 이 기기에만 저장돼요',
+            en:'💡 Tap a name tag to swap owners for that day · Check marks are saved on this device only'},
+  swapped:{ko:'↔', en:'↔'},
+  legendDaily:{ko:'매일 하는 일(🗑️ ♻️ 🧹)은 달력에서 생략했어요. 날짜를 누르면 그날 전체 목록이 보여요.',
+               en:'Daily chores (🗑️ ♻️ 🧹) are hidden on the calendar. Tap a date to see the full list.'},
+  settings:{ko:'설정', en:'Settings'},
+  display:{ko:'화면', en:'Display'},
+  themeS:{ko:'테마', en:'Theme'},
+  thAuto:{ko:'자동', en:'Auto'},
+  thLight:{ko:'라이트', en:'Light'},
+  thDark:{ko:'다크', en:'Dark'},
+  thAutoHelp:{ko:'자동: 아래 시간 동안 어두운 테마로 바뀌어요.', en:'Auto: dark theme during the hours below.'},
+  darkHours:{ko:'어두운 시간', en:'Dark hours'},
+  sleepS:{ko:'심야 화면 끄기', en:'Night screen-off'},
+  sleepHelp:{ko:'심야엔 검은 화면에 시계만 은은하게 떠요. 화면을 탭하면 1분간 다시 보여요. (아이패드 번인 방지)',
+             en:'At night the screen goes black with a faint clock. Tap to wake it for a minute. (Prevents burn-in)'},
+  onL:{ko:'켬', en:'On'},
+  offL:{ko:'끔', en:'Off'},
+  people:{ko:'사람', en:'People'},
+  dailyFixed:{ko:'매일 하는 일', en:'Daily chores'},
+  owner:{ko:'담당', en:'Owner'},
+  nextTurn:{ko:'다음 차례', en:'Next turn'},
+  foldWhen:{ko:'접기 시점', en:'Fold timing'},
+  sameDay:{ko:'같은 날', en:'Same day'},
+  nextDay:{ko:'다음 날', en:'Next day'},
+  monthPrefix:{ko:'매월', en:'Every month'},
+  instantNote:{ko:'변경하면 바로 적용돼요', en:'Changes apply instantly'},
+  tapNote:{ko:'이름표를 누르면 담당이 바뀌어요', en:'tap a name tag to switch owners'},
+  laundryS:{ko:'빨래 (주 3회)', en:'Laundry (3×/week)'},
+  washDays:{ko:'세탁 요일', en:'Wash days'},
+  washOwner:{ko:'돌리기+널기 담당', en:'Wash & hang'},
+  foldOwner:{ko:'접기 담당', en:'Folding'},
+  foldNext:{ko:'접기는 다음 날', en:'Fold next day'},
+  mopS:{ko:'물걸레질 (주 1회)', en:'Mopping (weekly)'},
+  bathS:{ko:'화장실 청소 (2주 1회)', en:'Bathroom (biweekly)'},
+  bedS:{ko:'침구 세탁 (2주 1회 · 같이)', en:'Bedding (biweekly · together)'},
+  fridgeS:{ko:'냉장고 청소 (월 1회)', en:'Fridge (monthly)'},
+  washerS:{ko:'세탁기 통세척 (월 1회)', en:'Washer tub (monthly)'},
+  day:{ko:'요일', en:'Day'},
+  nth:{ko:'몇째 주', en:'Week of month'},
+  mode:{ko:'방식', en:'Mode'},
+  rotate:{ko:'번갈아', en:'Alternate'},
+  fixed:{ko:'고정', en:'Fixed'},
+  firstOwner:{ko:'첫 담당', en:'First up'},
+  startWeek:{ko:'시작 주', en:'Starts'},
+  thisWeek:{ko:'기준 주', en:'Anchor week'},
+  nextWeek:{ko:'다음 주', en:'Week after'},
+  anchorS:{ko:'로테이션 기준일', en:'Rotation anchor'},
+  anchorHelp:{ko:'이 날짜가 포함된 주를 기준으로 격주 주기와 담당 순서를 계산해요.',
+              en:'Biweekly cycles & turn order are counted from the week containing this date.'},
+  save:{ko:'저장', en:'Save'},
+  close:{ko:'닫기', en:'Close'},
+  reset:{ko:'설정 초기화', en:'Reset settings'},
+  resetQ:{ko:'설정을 기본값으로 되돌릴까요?', en:'Reset all settings to default?'},
+  ruleDishT:{ko:'🍽️ 설거지', en:'🍽️ Dishes'},
+  ruleDish:{ko:'요리한 날엔 요리 안 한 사람이 설거지 — 가스레인지 닦기까지 포함! 평소에 쓴 컵·그릇은 쓴 사람이 그때그때 바로.',
+            en:"On cooking days, whoever didn't cook does the dishes — including wiping the stove! Everyday cups & plates: wash your own right away."},
+  ruleFoodT:{ko:'🧊 음식물 쓰레기', en:'🧊 Food waste'},
+  ruleFood:{ko:'냉동실에 모으는 중 → 정해진 주기 없이, 차면 버리기.',
+            en:'Collected in the freezer → no fixed schedule, take it out when full.'},
+  ruleGroT:{ko:'🛒 장보기 (옵션)', en:'🛒 Groceries (optional)'},
+  ruleGro:{ko:'같이 가기! 주기는 나중에 정하기로.', en:'Do it together! Schedule TBD.'},
+};
+
+const DEFAULTS = {
+  lang:'ko',
+  theme:'auto',
+  darkStart:21, darkEnd:7,
+  sleep:{on:true, start:0, end:6},
+  view:'week',
+  anchor:'2026-07-01',
+  people:{A:{name:'Person A', color:'#6d8dff'}, B:{name:'Person B', color:'#ff85a5'}},
+  daily:{trashBathroom:'B', trashRecycle:'A', vacuum:'A'},
+  laundry:{days:[2,4,6], owner:'B'},
+  mop:{day:0, mode:'rotate', first:'B'},
+  bathroomClean:{day:6, startWeek:0, first:'A'},
+  bedding:{day:6, startWeek:1},
+  fridge:{nth:1, day:0, first:'B'},
+  washerClean:{nth:3, day:0, first:'A'},
+};
+
+function deepMerge(base, over){
+  for(const k in over){
+    if(over[k] && typeof over[k]==='object' && !Array.isArray(over[k])
+       && base[k] && typeof base[k]==='object' && !Array.isArray(base[k])){
+      deepMerge(base[k], over[k]);
+    } else { base[k] = over[k]; }
+  }
+  return base;
+}
+function loadSettings(){
+  try{
+    const raw = JSON.parse(localStorage.getItem('chores-settings-v2') || '{}');
+    return deepMerge(JSON.parse(JSON.stringify(DEFAULTS)), raw);
+  }catch(e){ return JSON.parse(JSON.stringify(DEFAULTS)); }
+}
+let S = loadSettings();
+function saveSettings(){ localStorage.setItem('chores-settings-v2', JSON.stringify(S)); }
+
+let DONE = {};
+try{ DONE = JSON.parse(localStorage.getItem('chores-done-v1') || '{}'); }catch(e){}
+function persistDone(){ localStorage.setItem('chores-done-v1', JSON.stringify(DONE)); }
+
+let OVR = {};
+try{ OVR = JSON.parse(localStorage.getItem('chores-ovr-v1') || '{}'); }catch(e){}
+function persistOvr(){ localStorage.setItem('chores-ovr-v1', JSON.stringify(OVR)); }
+
+/* ---------- date helpers ---------- */
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function parseYMD(s){ const p = s.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
+function mondayOf(d){
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  x.setDate(x.getDate() - (x.getDay()+6)%7);
+  return x;
+}
+function mod(n,m){ return ((n%m)+m)%m; }
+function weekIndex(d){ return Math.round((mondayOf(d) - mondayOf(parseYMD(S.anchor))) / (7*DAY)); }
+function monthIndex(d){ const a = parseYMD(S.anchor); return (d.getFullYear()-a.getFullYear())*12 + (d.getMonth()-a.getMonth()); }
+function nthWeekday(y, m, nth, wd){
+  const first = new Date(y, m, 1);
+  return new Date(y, m, 1 + mod(wd - first.getDay(), 7) + (nth-1)*7);
+}
+function pick(firstId, idx){
+  const order = firstId==='A' ? ['A','B'] : ['B','A'];
+  return order[mod(idx, 2)];
+}
+function t(key){ return STR[key][S.lang]; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(d){
+  if(S.lang==='ko') return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${WD_KO[d.getDay()]})`;
+  return `${WD_EN[d.getDay()]}, ${MON_EN[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+function fmtShort(d){
+  if(S.lang==='ko') return `${d.getMonth()+1}/${d.getDate()} (${WD_KO[d.getDay()]})`;
+  return `${WD_EN[d.getDay()]} ${d.getMonth()+1}/${d.getDate()}`;
+}
+
+/* ---------- schedule engine ---------- */
+function choresFor(d){
+  const list = [];
+  const wd = d.getDay();
+  const wi = weekIndex(d);
+
+  list.push({id:'trashBathroom', who:S.daily.trashBathroom});
+  list.push({id:'trashRecycle',  who:S.daily.trashRecycle});
+  list.push({id:'vacuum',        who:S.daily.vacuum});
+
+  if(S.laundry.days.includes(wd)) list.push({id:'laundry', who:S.laundry.owner});
+
+  if(wd === S.mop.day){
+    const who = S.mop.mode==='fixed' ? S.mop.first : pick(S.mop.first, wi);
+    list.push({id:'mop', who});
+  }
+  const bc = S.bathroomClean;
+  if(wd === bc.day && mod(wi,2) === bc.startWeek){
+    list.push({id:'bathroomClean', who:pick(bc.first, Math.floor((wi - bc.startWeek)/2))});
+  }
+  const bd = S.bedding;
+  if(wd === bd.day && mod(wi,2) === bd.startWeek) list.push({id:'bedding', who:'both'});
+
+  const ds = ymd(d);
+  const fr = S.fridge;
+  if(ds === ymd(nthWeekday(d.getFullYear(), d.getMonth(), fr.nth, fr.day)))
+    list.push({id:'fridge', who:pick(fr.first, monthIndex(d))});
+  const wc = S.washerClean;
+  if(ds === ymd(nthWeekday(d.getFullYear(), d.getMonth(), wc.nth, wc.day)))
+    list.push({id:'washerClean', who:pick(wc.first, monthIndex(d))});
+
+  // per-day owner override (tap-to-swap)
+  for(const c of list){
+    c.base = c.who;
+    const o = OVR[ds+'|'+c.id];
+    if(o && c.who !== 'both') c.who = o;
+  }
+  return list;
+}
+function nextOccurrences(){
+  const found = {}, res = [];
+  const now = new Date();
+  const t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for(let i=0; i<70 && res.length < UPCOMING_IDS.length; i++){
+    const d = new Date(t0); d.setDate(d.getDate()+i);
+    for(const c of choresFor(d)){
+      if(UPCOMING_IDS.includes(c.id) && !found[c.id]){
+        found[c.id] = true;
+        res.push({id:c.id, who:c.who, date:d, dd:i});
+      }
+    }
+  }
+  return res.sort((a,b)=>a.dd-b.dd);
+}
+
+/* ---------- rendering ---------- */
+let viewY, viewM, sheetDateStr = null, curDate = ymd(new Date());
+{ const now = new Date(); viewY = now.getFullYear(); viewM = now.getMonth(); }
+
+function whoChip(who, tapAttr){
+  if(who==='both') return `<span class="chip both">${t('together')}</span>`;
+  const p = S.people[who];
+  return `<span class="chip ${tapAttr?'tap':''}" ${tapAttr||''}
+    style="background:${p.color}1e;color:${p.color};border-color:${p.color}66">${esc(p.name)}</span>`;
+}
+function choreRow(c, ds){
+  const done = !!DONE[ds+'|'+c.id];
+  const ch = CHORES[c.id];
+  const swapped = c.who !== c.base;
+  const tap = c.who==='both' ? '' : `onclick="swapWho(event,'${ds}','${c.id}')"`;
+  const p = c.who==='both' ? null : S.people[c.who];
+  const chip = c.who==='both'
+    ? `<span class="chip both">${t('together')}</span>`
+    : `<span class="chip tap" ${tap} style="background:${p.color}1e;color:${p.color};border-color:${p.color}66">${swapped?t('swapped')+' ':''}${esc(p.name)}</span>`;
+  return `<label class="chore ${done?'done':''}">
+    <input type="checkbox" ${done?'checked':''} onchange="toggleDone('${ds}','${c.id}')">
+    <span class="emoji">${ch.emoji}</span>
+    <span class="cname">${ch[S.lang]}<small>${ch.freq[S.lang]}</small></span>
+    ${chip}
+  </label>`;
+}
+
+function renderChrome(){
+  $('#hTitle').textContent = t('title');
+  $('#btnLang').textContent = S.lang==='ko' ? 'EN' : '한';
+  $('#btnCalToday').textContent = t('todayBtn');
+  $('#footNote').textContent = t('swapHint');
+  $('#tabWeek').textContent = t('week');
+  $('#tabMonth').textContent = t('month');
+  $('#tabWeek').classList.toggle('on', S.view==='week');
+  $('#tabMonth').classList.toggle('on', S.view==='month');
+  $('#weekPane').hidden = S.view!=='week';
+  $('#monthPane').hidden = S.view!=='month';
+}
+
+function renderClock(){
+  const n = new Date();
+  $('#clkTime').textContent = String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+  $('#clkDate').textContent = S.lang==='ko'
+    ? `${n.getMonth()+1}월 ${n.getDate()}일 ${WD_KO[n.getDay()]}요일`
+    : `${WD_EN_FULL[n.getDay()]}, ${MON_EN[n.getMonth()]} ${n.getDate()}`;
+}
+
+function inHourRange(h, start, end){
+  return start<=end ? (h>=start && h<end) : (h>=start || h<end);
+}
+function applyTheme(){
+  const h = new Date().getHours();
+  const dark = S.theme==='dark' || (S.theme==='auto' && inHourRange(h, S.darkStart, S.darkEnd));
+  document.body.classList.toggle('dark', dark);
+}
+/* burn-in protection: night screen-off overlay + slow pixel shift */
+let sleepPeekUntil = 0;
+function applySleep(){
+  const n = new Date();
+  const active = S.sleep.on && inHourRange(n.getHours(), S.sleep.start, S.sleep.end)
+    && Date.now() > sleepPeekUntil;
+  $('#sleep').classList.toggle('on', active);
+  if(active){
+    $('#sleepClk').textContent =
+      String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+    const k = Math.floor(Date.now()/60000);   // 시계 위치도 1분마다 이동
+    $('#sleepClk').style.transform = `translate(${(k*37)%160-80}px, ${(k*53)%200-100}px)`;
+  }
+}
+function applyShift(){
+  const k = Math.floor(Date.now()/300000);    // 5분마다 화면 전체 1~2px 이동
+  const app = document.querySelector('.app');
+  if(app) app.style.transform = `translate(${(k*7)%5-2}px, ${(k*13)%5-2}px)`;
+}
+
+function renderToday(){
+  const d = new Date();
+  const ds = ymd(d);
+  const list = choresFor(d);
+  const doneN = list.filter(c=>DONE[ds+'|'+c.id]).length;
+  const pct = Math.round(doneN/list.length*100);
+  $('#todayCard').innerHTML =
+    `<div class="cardHead"><h2>${t('today')}</h2>
+       <span class="prog">${doneN===list.length ? t('allDone') : doneN+'/'+list.length}</span></div>
+     <div class="pbar"><i style="width:${pct}%"></i></div>` +
+    list.map(c=>choreRow(c, ds)).join('');
+}
+
+function renderWeek(){
+  const mon = mondayOf(new Date());
+  const todayStr = ymd(new Date());
+  let html = '';
+  for(let i=0;i<7;i++){
+    const d = new Date(mon); d.setDate(d.getDate()+i);
+    const ds = ymd(d);
+    const wd = d.getDay();
+    const items = choresFor(d).filter(c=>!CHORES[c.id].daily);
+    const cls = wd===0?'sun':wd===6?'sat':'';
+    const body = items.map(c=>{
+      const done = DONE[ds+'|'+c.id] ? 'done' : '';
+      let bg, bar, name;
+      if(c.who==='both'){
+        bg = `linear-gradient(90deg,${S.people.A.color}22,${S.people.B.color}22)`;
+        bar = S.people.A.color; name = t('together');
+      }else{
+        bg = S.people[c.who].color+'20'; bar = S.people[c.who].color;
+        name = esc(S.people[c.who].name);
+      }
+      return `<div class="wItem ${done}" style="background:${bg};border-left-color:${bar};">
+        ${CHORES[c.id].emoji} ${CHORES[c.id][S.lang]}<small style="color:${bar}">${c.who!==c.base?t('swapped')+' ':''}${name}</small></div>`;
+    }).join('');
+    html += `<div class="wcol ${ds===todayStr?'today':''}" onclick="openSheet('${ds}')">
+      <div class="whead ${cls}">${(S.lang==='ko'?WD_KO:WD_EN)[wd]}<b>${d.getDate()}</b></div>${body}</div>`;
+  }
+  $('#weekGrid').innerHTML = html;
+}
+
+function renderUpcoming(){
+  const rows = nextOccurrences().map(o=>{
+    const dd = o.dd===0 ? t('dToday') : o.dd===1 ? t('dTomorrow') : 'D-'+o.dd;
+    return `<div class="uRow">
+      <span class="emoji">${CHORES[o.id].emoji}</span>
+      <span class="cname">${CHORES[o.id][S.lang]}<small>${fmtShort(o.date)}</small></span>
+      <span class="dday">${dd}</span>
+      ${whoChip(o.who)}
+    </div>`;
+  }).join('');
+  $('#upCard').innerHTML = `<div class="cardHead"><h2>${t('upcoming')}</h2></div>` + rows;
+}
+
+function renderCalendar(){
+  $('#calTitle').textContent = S.lang==='ko' ? `${viewY}년 ${viewM+1}월` : `${MON_EN[viewM]} ${viewY}`;
+  const wds = S.lang==='ko' ? WD_KO : WD_EN;
+  let html = wds.map((w,i)=>`<div class="wdh ${i===0?'sun':i===6?'sat':''}">${w}</div>`).join('');
+
+  const firstWd = new Date(viewY, viewM, 1).getDay();
+  const dim = new Date(viewY, viewM+1, 0).getDate();
+  const todayStr = ymd(new Date());
+  for(let i=0;i<firstWd;i++) html += `<div class="cell empty"></div>`;
+
+  for(let day=1; day<=dim; day++){
+    const d = new Date(viewY, viewM, day);
+    const ds = ymd(d);
+    const wd = d.getDay();
+    const items = choresFor(d).filter(c=>!CHORES[c.id].daily);
+    const minis = items.map(c=>{
+      let grad;
+      if(c.who==='both') grad = `linear-gradient(90deg,${S.people.A.color},${S.people.B.color})`;
+      else grad = `linear-gradient(${S.people[c.who].color},${S.people[c.who].color})`;
+      return `<span class="mini" style="background:${grad} left bottom no-repeat;background-size:100% 3px;">${CHORES[c.id].emoji}</span>`;
+    }).join('');
+    html += `<div class="cell ${ds===todayStr?'today':''}" onclick="openSheet('${ds}')">
+      <div class="dn ${wd===0?'sun':wd===6?'sat':''}">${day}</div>
+      <div class="minis">${minis}</div></div>`;
+  }
+  $('#calGrid').innerHTML = html;
+
+  $('#calLegend').innerHTML =
+    ['laundry','mop','bathroomClean','bedding','fridge','washerClean']
+      .map(id=>`<span class="li">${CHORES[id].emoji} ${CHORES[id][S.lang]}</span>`).join('');
+  $('#calNote').textContent = t('legendDaily');
+}
+
+function renderSheet(){
+  if(!sheetDateStr) return;
+  const d = parseYMD(sheetDateStr);
+  const list = choresFor(d);
+  $('#sheet').innerHTML = `<h3>${fmtDate(d)}</h3>` + list.map(c=>choreRow(c, sheetDateStr)).join('');
+}
+
+function renderAll(){
+  applyTheme(); applySleep(); applyShift(); renderChrome(); renderClock();
+  renderToday(); renderWeek(); renderUpcoming(); renderCalendar(); renderSheet();
+}
+
+/* ---------- interactions ---------- */
+window.toggleDone = function(ds, id){
+  const k = ds+'|'+id;
+  if(DONE[k]) delete DONE[k]; else DONE[k] = 1;
+  persistDone();
+  renderAll();
+};
+window.swapWho = function(ev, ds, id){
+  ev.preventDefault(); ev.stopPropagation();
+  const item = choresFor(parseYMD(ds)).find(c=>c.id===id);
+  if(!item || item.who==='both') return;
+  const other = item.who==='A' ? 'B' : 'A';
+  const k = ds+'|'+id;
+  if(other === item.base) delete OVR[k]; else OVR[k] = other;
+  persistOvr();
+  renderAll();
+};
+window.openSheet = function(ds){
+  sheetDateStr = ds;
+  renderSheet();
+  $('#sheetWrap').classList.add('open');
+};
+$('#sheetWrap').addEventListener('click', e=>{
+  if(e.target.id === 'sheetWrap'){ $('#sheetWrap').classList.remove('open'); sheetDateStr = null; }
+});
+$('#btnPrev').onclick = ()=>{ viewM--; if(viewM<0){viewM=11;viewY--;} renderCalendar(); };
+$('#btnNext').onclick = ()=>{ viewM++; if(viewM>11){viewM=0;viewY++;} renderCalendar(); };
+$('#btnCalToday').onclick = ()=>{ const n=new Date(); viewY=n.getFullYear(); viewM=n.getMonth(); renderCalendar(); };
+$('#btnLang').onclick = ()=>{ S.lang = S.lang==='ko' ? 'en' : 'ko'; saveSettings(); renderAll(); };
+$('#tabWeek').onclick = ()=>{ S.view='week'; saveSettings(); renderChrome(); };
+$('#tabMonth').onclick = ()=>{ S.view='month'; saveSettings(); renderChrome(); };
+$('#btnFull').onclick = ()=>{
+  if(document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(()=>{});
+};
+$('#btnRules').onclick = ()=>{
+  const dlg = $('#dlgRules');
+  dlg.innerHTML = `<div class="dlgIn">
+    <h2>${t('rules')}</h2>
+    <div class="rule"><b>${t('ruleDishT')}</b><span>${t('ruleDish')}</span></div>
+    <div class="rule"><b>${t('ruleFoodT')}</b><span>${t('ruleFood')}</span></div>
+    <div class="rule"><b>${t('ruleGroT')}</b><span>${t('ruleGro')}</span></div>
+    <div class="dlgBtns"><button onclick="document.querySelector('#dlgRules').close()">${t('close')}</button></div>
+  </div>`;
+  dlg.showModal();
+};
+
+/* always-on display: clock tick + midnight rollover + auto theme + burn-in protection */
+function tick(){
+  renderClock(); applyTheme(); applySleep(); applyShift();
+  const nowD = ymd(new Date());
+  if(nowD !== curDate){ curDate = nowD; const n=new Date(); viewY=n.getFullYear(); viewM=n.getMonth(); renderAll(); }
+}
+setInterval(tick, 5000);
+/* 심야 모드 깨우기: 어떤 터치든 마지막 터치 시점부터 1분 유지, 터치가 이어지면 계속 연장 */
+document.addEventListener('pointerdown', ()=>{
+  const n = new Date();
+  if(S.sleep.on && inHourRange(n.getHours(), S.sleep.start, S.sleep.end)){
+    sleepPeekUntil = Date.now() + 60000;
+    applySleep();
+  }
+});
+
+/* keep screen awake where supported (needs https; harmless on file://) */
+async function keepAwake(){
+  try{ if('wakeLock' in navigator) await navigator.wakeLock.request('screen'); }catch(e){}
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) keepAwake(); });
+keepAwake();
+
+/* ---------- settings dialog (plain language, instant apply) ---------- */
+function otherOf(w){ return w==='A' ? 'B' : 'A'; }
+function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
+function nextWeekdayDate(wd){
+  const n = new Date();
+  const d = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  return addDays(d, mod(wd - d.getDay(), 7));
+}
+function nextBiweekly(cfg){
+  const d1 = nextWeekdayDate(cfg.day);
+  return mod(weekIndex(d1),2)===cfg.startWeek ? d1 : addDays(d1, 7);
+}
+function nextMonthly(cfg){
+  const n = new Date();
+  const t0 = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  let d = nthWeekday(t0.getFullYear(), t0.getMonth(), cfg.nth, cfg.day);
+  if(d < t0) d = nthWeekday(t0.getFullYear(), t0.getMonth()+1, cfg.nth, cfg.day);
+  return d;
+}
+function getPath(o, p){ return p.split('.').reduce((x,k)=>x[k], o); }
+function setPath(o, p, v){
+  const ks = p.split('.'); let x = o;
+  for(let i=0; i<ks.length-1; i++) x = x[ks[i]];
+  x[ks[ks.length-1]] = v;
+}
+/* user taps "next turn = OO" → derive internal first-owner so that date lands on OO */
+function flipDerived(kind){
+  if(kind==='mop'){
+    const wi = weekIndex(nextWeekdayDate(S.mop.day));
+    const nw = otherOf(pick(S.mop.first, wi));
+    S.mop.first = mod(wi,2)===0 ? nw : otherOf(nw);
+  }else if(kind==='bath'){
+    const cfg = S.bathroomClean;
+    const occ = Math.floor((weekIndex(nextBiweekly(cfg)) - cfg.startWeek)/2);
+    const nw = otherOf(pick(cfg.first, occ));
+    cfg.first = mod(occ,2)===0 ? nw : otherOf(nw);
+  }else{
+    const cfg = kind==='fridge' ? S.fridge : S.washerClean;
+    const mi = monthIndex(nextMonthly(cfg));
+    const nw = otherOf(pick(cfg.first, mi));
+    cfg.first = mod(mi,2)===0 ? nw : otherOf(nw);
+  }
+}
+
+function pBtn(who, attrs){
+  const p = S.people[who];
+  return `<button class="chip tap" ${attrs}
+    style="background:${p.color}1e;color:${p.color};border-color:${p.color}66">${esc(p.name)}</button>`;
+}
+function segBtns(k, opts, cur, extra){
+  return `<span class="seg">` + opts.map(o=>
+    `<button data-act="seg" data-k="${k}" data-v="${o.v}" ${extra||''}
+      class="${String(o.v)===String(cur)?'on':''}">${o.label}</button>`).join('') + `</span>`;
+}
+function dSelFull(key, val){
+  const wds = S.lang==='ko' ? WD_KO.map(w=>w+'요일') : WD_EN_FULL;
+  return `<select data-sel="${key}">` +
+    wds.map((w,i)=>`<option value="${i}" ${i===val?'selected':''}>${w}</option>`).join('') + `</select>`;
+}
+function nSelM(key, val){
+  return `<select data-sel="${key}">` +
+    NTH[S.lang].map((n,i)=>`<option value="${i+1}" ${i+1===val?'selected':''}>${n}</option>`).join('') + `</select>`;
+}
+function hSel(key, val){
+  let opts = '';
+  for(let h=0; h<24; h++){
+    const label = S.lang==='ko' ? h+'시' : String(h).padStart(2,'0')+':00';
+    opts += `<option value="${h}" ${h===val?'selected':''}>${label}</option>`;
+  }
+  return `<select data-sel="${key}">${opts}</select>`;
+}
+
+function renderSettingsBody(){
+  const mopNext = nextWeekdayDate(S.mop.day);
+  const mopWho = S.mop.mode==='fixed' ? S.mop.first : pick(S.mop.first, weekIndex(mopNext));
+  const bath = S.bathroomClean;
+  const bathNext = nextBiweekly(bath);
+  const bathWho = pick(bath.first, Math.floor((weekIndex(bathNext) - bath.startWeek)/2));
+  const bathC1 = nextWeekdayDate(bath.day), bathC2 = addDays(bathC1, 7);
+  const bedC1 = nextWeekdayDate(S.bedding.day), bedC2 = addDays(bedC1, 7);
+  const frNext = nextMonthly(S.fridge), frWho = pick(S.fridge.first, monthIndex(frNext));
+  const wcNext = nextMonthly(S.washerClean), wcWho = pick(S.washerClean.first, monthIndex(wcNext));
+  const wdsShort = S.lang==='ko' ? WD_KO : WD_EN;
+
+  $('#dlg').innerHTML = `<div class="dlgIn">
+    <h2>⚙️ ${t('settings')}</h2>
+    <p class="subNote">${t('instantNote')} · ${t('tapNote')}</p>
+
+    <div class="secCard">
+      <div class="sec">${t('people')}</div>
+      <div class="frow"><input type="text" data-inp="people.A.name" value="${esc(S.people.A.name)}">
+        <input type="color" data-inp="people.A.color" value="${S.people.A.color}"></div>
+      <div class="frow"><input type="text" data-inp="people.B.name" value="${esc(S.people.B.name)}">
+        <input type="color" data-inp="people.B.color" value="${S.people.B.color}"></div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">${t('dailyFixed')}</div>
+      <div class="frow"><label>🗑️ ${CHORES.trashBathroom[S.lang]}</label>
+        ${pBtn(S.daily.trashBathroom, `data-act="flip" data-path="daily.trashBathroom"`)}</div>
+      <div class="frow"><label>♻️ ${CHORES.trashRecycle[S.lang]}</label>
+        ${pBtn(S.daily.trashRecycle, `data-act="flip" data-path="daily.trashRecycle"`)}</div>
+      <div class="frow"><label>🧹 ${CHORES.vacuum[S.lang]}</label>
+        ${pBtn(S.daily.vacuum, `data-act="flip" data-path="daily.vacuum"`)}</div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">🧺 ${t('laundryS')}</div>
+      <div class="frow"><label>${t('washDays')}</label>
+        <span style="display:flex;gap:4px;flex-wrap:wrap;">${wdsShort.map((w,i)=>
+          `<button class="dayb ${S.laundry.days.includes(i)?'on':''}" data-act="ld" data-v="${i}">${w}</button>`).join('')}</span></div>
+      <div class="frow"><label>${t('owner')}</label>
+        ${pBtn(S.laundry.owner, `data-act="flip" data-path="laundry.owner"`)}</div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">🧽 ${t('mopS')}</div>
+      <div class="frow"><label>${t('day')}</label>${dSelFull('mop.day', S.mop.day)}
+        ${segBtns('mop.mode', [{v:'rotate',label:t('rotate')},{v:'fixed',label:t('fixed')}], S.mop.mode)}</div>
+      <div class="frow"><label>${S.mop.mode==='fixed' ? t('owner') : t('nextTurn')+' · '+fmtShort(mopNext)}</label>
+        ${S.mop.mode==='fixed'
+          ? pBtn(S.mop.first, `data-act="flip" data-path="mop.first"`)
+          : pBtn(mopWho, `data-act="flipd" data-kind="mop"`)}</div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">🚽 ${t('bathS')}</div>
+      <div class="frow"><label>${t('day')}</label>${dSelFull('bathroomClean.day', bath.day)}</div>
+      <div class="frow"><label>${t('nextTurn')}</label>
+        ${segBtns('bathroomClean.startWeek',
+          [{v:mod(weekIndex(bathC1),2), label:fmtShort(bathC1)},
+           {v:mod(weekIndex(bathC2),2), label:fmtShort(bathC2)}],
+          bath.startWeek, 'data-num="1"')}</div>
+      <div class="frow"><label>${t('owner')} · ${fmtShort(bathNext)}</label>
+        ${pBtn(bathWho, `data-act="flipd" data-kind="bath"`)}</div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">🛏️ ${t('bedS')}</div>
+      <div class="frow"><label>${t('day')}</label>${dSelFull('bedding.day', S.bedding.day)}</div>
+      <div class="frow"><label>${t('nextTurn')}</label>
+        ${segBtns('bedding.startWeek',
+          [{v:mod(weekIndex(bedC1),2), label:fmtShort(bedC1)},
+           {v:mod(weekIndex(bedC2),2), label:fmtShort(bedC2)}],
+          S.bedding.startWeek, 'data-num="1"')}</div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">🧊 ${t('fridgeS')}</div>
+      <div class="frow"><label>${t('monthPrefix')}</label>
+        ${nSelM('fridge.nth', S.fridge.nth)} ${dSelFull('fridge.day', S.fridge.day)}</div>
+      <div class="frow"><label>${t('nextTurn')} · ${fmtShort(frNext)}</label>
+        ${pBtn(frWho, `data-act="flipd" data-kind="fridge"`)}</div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">🌀 ${t('washerS')}</div>
+      <div class="frow"><label>${t('monthPrefix')}</label>
+        ${nSelM('washerClean.nth', S.washerClean.nth)} ${dSelFull('washerClean.day', S.washerClean.day)}</div>
+      <div class="frow"><label>${t('nextTurn')} · ${fmtShort(wcNext)}</label>
+        ${pBtn(wcWho, `data-act="flipd" data-kind="washer"`)}</div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">${t('display')}</div>
+      <div class="frow"><label>${t('themeS')}</label>
+        ${segBtns('theme',
+          [{v:'auto',label:t('thAuto')},{v:'light',label:t('thLight')},{v:'dark',label:t('thDark')}],
+          S.theme)}</div>
+      <div class="frow"><label>${t('darkHours')}</label>
+        ${hSel('darkStart', S.darkStart)} ~ ${hSel('darkEnd', S.darkEnd)}</div>
+      <p class="help">${t('thAutoHelp')}</p>
+      <div class="frow"><label>${t('sleepS')}</label>
+        ${segBtns('sleep.on', [{v:1,label:t('onL')},{v:0,label:t('offL')}], S.sleep.on?1:0, 'data-bool="1"')}
+        ${hSel('sleep.start', S.sleep.start)} ~ ${hSel('sleep.end', S.sleep.end)}</div>
+      <p class="help">${t('sleepHelp')}</p>
+    </div>
+
+    <div class="dlgBtns">
+      <button class="primary" data-act="close">${t('close')}</button>
+    </div>
+    <button class="resetLink" data-act="reset">${t('reset')}</button>
+  </div>`;
+}
+function commitSettings(){ saveSettings(); renderAll(); renderSettingsBody(); }
+function openSettings(){ renderSettingsBody(); $('#dlg').showModal(); }
+$('#btnSet').onclick = openSettings;
+
+$('#dlg').addEventListener('click', e=>{
+  const b = e.target.closest('[data-act]');
+  if(!b) return;
+  const act = b.dataset.act;
+  if(act==='close'){ $('#dlg').close(); return; }
+  if(act==='reset'){
+    if(confirm(t('resetQ'))){
+      localStorage.removeItem('chores-settings-v2');
+      S = loadSettings();
+      commitSettings();
+    }
+    return;
+  }
+  if(act==='flip'){ setPath(S, b.dataset.path, otherOf(getPath(S, b.dataset.path))); commitSettings(); }
+  else if(act==='flipd'){ flipDerived(b.dataset.kind); commitSettings(); }
+  else if(act==='seg'){
+    let v = b.dataset.v;
+    if(b.dataset.num) v = Number(v);
+    if(b.dataset.bool) v = v==='1';
+    setPath(S, b.dataset.k, v);
+    commitSettings();
+  }
+  else if(act==='ld'){
+    const v = Number(b.dataset.v);
+    if(S.laundry.days.includes(v)){
+      if(S.laundry.days.length > 1) S.laundry.days = S.laundry.days.filter(x=>x!==v);
+    }else{
+      S.laundry.days.push(v);
+      S.laundry.days.sort((a,b2)=>a-b2);
+    }
+    commitSettings();
+  }
+});
+$('#dlg').addEventListener('change', e=>{
+  const el = e.target;
+  if(el.dataset && el.dataset.sel){ setPath(S, el.dataset.sel, Number(el.value)); commitSettings(); }
+  else if(el.dataset && el.dataset.inp){
+    let v = el.value;
+    if(el.dataset.inp.endsWith('.name')) v = v.trim() || '?';
+    setPath(S, el.dataset.inp, v);
+    commitSettings();
+  }
+});
+
+renderAll();
+</script>
+</body>
+</html>
