@@ -8,6 +8,7 @@ import {
   addDays, nextWeekdayDate, nextBiweekly, nextMonthly, choresFor,
 } from './core.js';
 import { wx24, wxInfo, repWeather } from './weather.js';
+import { accountData, hasAccountUrl, thisMonthTotal, recentTxs } from './livingAccount.js';
 
 export const $ = s => document.querySelector(s);
 function esc(s){
@@ -39,11 +40,12 @@ function choreRow(c, ds){
   const p = c.who==='both' ? null : S.people[c.who];
   const chip = c.who==='both'
     ? `<span class="chip both">${t('together')}</span>`
-    : `<span class="chip tap" ${tap} style="background:${p.color}1e;color:${p.color};border-color:${p.color}66">${swapped?t('swapped')+' ':''}${esc(p.name)}</span>`;
+    : `<span class="chip tap" ${tap} style="background:${p.color};color:#fff;border-color:${p.color}">${swapped?t('swapped')+' ':''}${esc(p.name)}</span>`;
+  const freq = ch.daily ? '' : `<small>${ch.freq[S.lang]}</small>`;   // "매일" 은 노이즈라 생략
   return `<label class="chore ${done?'done':''}">
     <input type="checkbox" ${done?'checked':''} onchange="toggleDone('${ds}','${c.id}')">
     <span class="emoji">${ch.emoji}</span>
-    <span class="cname">${ch[S.lang]}<small>${ch.freq[S.lang]}</small></span>
+    <span class="cname">${ch[S.lang]}${freq}</span>
     ${chip}
   </label>`;
 }
@@ -51,7 +53,6 @@ function choreRow(c, ds){
 export function renderChrome(){
   $('#btnLang').textContent = S.lang==='ko' ? 'EN' : '한';
   $('#btnCalToday').textContent = t('todayBtn');
-  $('#footNote').textContent = t('swapHint');
 }
 
 export function renderClock(){
@@ -140,7 +141,6 @@ export function renderCalendar(){
   $('#calLegend').innerHTML =
     ['laundry','mop','bathroomClean','bedding','fridge']
       .map(id=>`<span class="li">${CHORES[id].emoji} ${CHORES[id][S.lang]}</span>`).join('');
-  $('#calNote').textContent = t('legendDaily');
 }
 
 /* ---------- 날씨 바 / 시간별 시트 ---------- */
@@ -151,10 +151,12 @@ export function renderWeather(){
   if(!win){ el.innerHTML = `<span class="wxDesc">${S.lang==='ko'?'날씨 불러오는 중…':'Loading weather…'}</span>`; return; }
   const temps = win.map(x=>x.temp);
   const w = wxInfo(repWeather(win));
+  const hum = win[0] && win[0].humidity!=null ? `<span class="wxHum">💦${win[0].humidity}%</span>` : '';
   el.innerHTML =
     `<span class="wxIcon">${w.emoji}</span>`
     + `<span class="wxTemp">${Math.max(...temps)}°<span class="wxMin">/ ${Math.min(...temps)}°</span></span>`
     + `<span class="wxDesc ${w.precip?'rain':''}">${w[S.lang]}</span>`
+    + hum
     + `<span class="wxMore">${S.lang==='ko'?'24시간':'24h'} ›</span>`;
 }
 function wxDateLabel(ds){
@@ -173,18 +175,63 @@ export function renderWeatherSheet(){
     if(x.date !== lastDate){ lastDate = x.date; rows += `<div class="hDate">${wxDateLabel(x.date)}</div>`; }
     const w = wxInfo(x.code);
     const hl = S.lang==='ko' ? `${x.h}시` : `${String(x.h).padStart(2,'0')}:00`;
-    const pop = (x.pop!=null && x.pop>0) ? `<span class="hPop">💧${x.pop}%</span>` : '';
+    const pop = (x.pop!=null && x.pop>0) ? `<span class="hPop">☔${x.pop}%</span>` : '';
+    const hum = (x.humidity!=null) ? `<span class="hHum">💦${x.humidity}%</span>` : '';
     const now = (x.date===nowStr && x.h===nowH) ? 'now' : '';
     rows += `<div class="hRow ${now}">
       <span class="hH">${hl}</span><span class="hIco">${w.emoji}</span>
-      <span class="hDesc">${w[S.lang]}</span>${pop}<span class="hT">${x.temp}°</span></div>`;
+      <span class="hDesc">${w[S.lang]}</span>${pop}${hum}<span class="hT">${x.temp}°</span></div>`;
   }
   $('#sheet').innerHTML = `<h3>${title}</h3><div class="hourly">${rows}</div>`;
 }
 
-// 바텀시트: 날씨 모드 / 날짜별 집안일 목록
+/* ---------- 생활비 통장 바 / 상세 시트 ---------- */
+function fmtWon(n){ return (n==null ? '—' : Number(n).toLocaleString('ko-KR')) + '원'; }
+
+export function renderAccount(){
+  const el = $('#moneyCard');
+  if(!el) return;
+  const label = S.lang==='ko' ? '💰 남은 생활비' : '💰 Balance';
+  let bal;
+  if(!hasAccountUrl()) bal = `<div class="mcBal muted">${S.lang==='ko'?'설정에서 연결':'Connect in settings'}</div>`;
+  else{
+    const a = accountData();
+    bal = (a && a.balance!=null)
+      ? `<div class="mcBal">${fmtWon(a.balance)}</div>`
+      : `<div class="mcBal muted">${S.lang==='ko'?'불러오는 중…':'Loading…'}</div>`;
+  }
+  el.innerHTML = `<div class="mcLabel">${label}<span class="mcMore">›</span></div>${bal}`;
+}
+
+export function renderAccountSheet(){
+  const title = S.lang==='ko' ? '💰 생활비 통장' : '💰 Living account';
+  if(!hasAccountUrl()){
+    $('#sheet').innerHTML = `<h3>${title}</h3><p class="hint">${S.lang==='ko'
+      ? '⚙️ 설정 → 생활비에서 구글 시트 CSV 게시 URL 을 넣으면 잔액과 내역이 보여요.'
+      : 'Add your Google Sheet CSV URL in ⚙️ Settings → Living account.'}</p>`;
+    return;
+  }
+  const a = accountData();
+  const bal = a && a.balance!=null ? fmtWon(a.balance) : '—';
+  const month = fmtWon(thisMonthTotal());
+  const txs = recentTxs(5);
+  const rows = txs.length ? txs.map(t=>{
+    const md = String(t.date).slice(5).replace('-','/');   // "07-13" → "07/13"
+    return `<div class="txRow"><span class="txDate">${md}</span>
+      <span class="txMemo">${esc(t.memo||'')}</span>
+      <span class="txAmt">${fmtWon(t.amount)}</span></div>`;
+  }).join('') : `<p class="hint">${S.lang==='ko'?'내역이 아직 없어요.':'No transactions yet.'}</p>`;
+
+  $('#sheet').innerHTML = `<h3>${title}</h3>
+    <div class="acctBal">${bal}<small>${S.lang==='ko'?'남은 잔액':'balance'}</small></div>
+    <div class="acctSub">${S.lang==='ko'?'이번 달 지출':'This month'} <b>${month}</b></div>
+    <div class="hDate">${S.lang==='ko'?'최근 내역':'Recent'}</div>${rows}`;
+}
+
+// 바텀시트: 날씨 / 생활비 / 날짜별 집안일 목록
 export function renderSheet(){
   if(view.sheetMode==='weather'){ renderWeatherSheet(); return; }
+  if(view.sheetMode==='account'){ renderAccountSheet(); return; }
   if(!view.sheetDateStr) return;
   const d = parseYMD(view.sheetDateStr);
   const list = choresFor(d);
@@ -193,7 +240,7 @@ export function renderSheet(){
 
 export function renderAll(){
   applyTheme(); applySleep(); applyShift(); renderChrome(); renderClock();
-  renderToday(); renderWeather(); renderCalendar(); renderSheet();
+  renderToday(); renderWeather(); renderAccount(); renderCalendar(); renderSheet();
 }
 
 /* ====================================================================
@@ -337,6 +384,18 @@ function renderSettingsBody(){
         ${nSelM('fridge.nth', S.fridge.nth)} ${dSelFull('fridge.day', S.fridge.day)}</div>
       <div class="frow"><label>${t('nextTurn')} · ${fmtShort(frNext)}</label>
         ${pBtn(frWho, `data-act="flipd" data-kind="fridge"`)}</div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">💰 ${S.lang==='ko'?'생활비':'Living account'}</div>
+      <div class="frow" style="flex-direction:column;align-items:stretch;gap:5px;">
+        <label style="min-width:0">${S.lang==='ko'?'구글 시트 CSV 게시 URL':'Google Sheet CSV URL'}</label>
+        <input type="url" data-inp="account.url" value="${esc(S.account.url)}"
+          placeholder="https://docs.google.com/.../pub?output=csv" style="width:100%">
+      </div>
+      <p class="help">${S.lang==='ko'
+        ? '시트 → 파일 → 공유 → 웹에 게시 → CSV 선택 → URL 붙여넣기. URL 은 이 기기에만 저장돼요.'
+        : 'Sheet → File → Share → Publish to web → CSV. Stored on this device only.'}</p>
     </div>
 
     <div class="secCard">

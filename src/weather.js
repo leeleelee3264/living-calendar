@@ -59,7 +59,7 @@ export async function fetchWeather(){
   try{
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${WX_LAT}&longitude=${WX_LON}`
       + `&timezone=Asia%2FSeoul&forecast_days=2`
-      + `&hourly=weather_code,temperature_2m,precipitation_probability`;
+      + `&hourly=weather_code,temperature_2m,precipitation_probability,relative_humidity_2m`;
     const r = await fetch(url);
     if(!r.ok) throw new Error('http '+r.status);
     const j = await r.json();
@@ -70,6 +70,7 @@ export async function fetchWeather(){
       code: j.hourly.weather_code[i],
       temp: Math.round(j.hourly.temperature_2m[i]),
       pop: j.hourly.precipitation_probability ? j.hourly.precipitation_probability[i] : null,
+      humidity: j.hourly.relative_humidity_2m ? j.hourly.relative_humidity_2m[i] : null,
     }));
     WX = { fetchedAt: nowStamp(), hours };
     localStorage.setItem('chores-weather-v2', JSON.stringify(WX));

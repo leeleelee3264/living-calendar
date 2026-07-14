@@ -1,7 +1,8 @@
 :root{
-  --bg:#faf6f0; --card:#ffffff; --ink:#3a3540; --sub:#9a8fa3;
-  --line:#f0e9e2; --accent:#ffb26b; --cellbg:#faf8f5; --cellToday:#fff7ee;
-  --shadow:0 2px 12px rgba(90,70,50,.06); --sbthumb:#dccfc0;
+  /* 낮 모드: 부드러운 쿨 그레이 + 따뜻한 오렌지 포인트 (순백/순흑 배제 → 번인·눈부심 완화) */
+  --bg:#eceef2; --card:#fbfcfd; --ink:#3a3d46; --sub:#8f96a2;
+  --line:#e3e7ed; --accent:#f2a15d; --cellbg:#f1f3f6; --cellToday:#fdeede;
+  --shadow:0 4px 16px rgba(80,95,120,.08); --sbthumb:#cfd6df;
 }
 body.dark{
   --bg:#15171c; --card:#1e2129; --ink:#e8ebf0; --sub:#98a0ac;
@@ -52,7 +53,7 @@ body{margin:0; background:var(--bg); color:var(--ink);
   transition:background .4s;}
 .cardHead{display:flex; align-items:baseline; gap:8px;}
 .cardHead h2{font-size:1rem; margin:0; flex:1;}
-.prog{font-size:.9rem; color:var(--sub); font-weight:700;}
+.prog{font-size:1.05rem; color:var(--ink); font-weight:800;}
 .pbar{height:8px; border-radius:99px; background:var(--line); margin:10px 0 4px; overflow:hidden;}
 .pbar i{display:block; height:100%; background:linear-gradient(90deg,#7bc47f,#a8d5ab);
   border-radius:99px; transition:width .3s;}
@@ -62,11 +63,11 @@ body{margin:0; background:var(--bg); color:var(--ink);
 .chore:last-of-type{border-bottom:none;}
 .chore input{width:25px; height:25px; accent-color:#7bc47f; flex:none; cursor:pointer;}
 .chore .emoji{font-size:1.4rem; flex:none;}
-.cname{flex:1; font-size:1rem; line-height:1.25;}
+.cname{flex:1; font-size:1.08rem; font-weight:600; line-height:1.25; word-break:keep-all;}
 .cname small{display:block; color:var(--sub); font-size:.72rem; margin-top:1px; font-weight:600;}
 .chore.done .cname{text-decoration:line-through; opacity:.4;}
-.chip{font-size:.78rem; padding:4px 11px; border-radius:999px; border:1.5px solid;
-  white-space:nowrap; flex:none; font-weight:700;}
+.chip{font-size:.85rem; padding:5px 13px; border-radius:999px; border:1.5px solid;
+  white-space:nowrap; flex:none; font-weight:800;}
 .chip.both{background:linear-gradient(90deg,#6d8dff1e,#ff92ac1e);
   color:#9a8aa8; border-color:#d5c8e0;}
 .chip.tap{cursor:pointer;}
@@ -196,7 +197,30 @@ button.chip{cursor:pointer; font-family:inherit;}
 .wx .wxTemp .wxMin{font-weight:600; color:var(--sub); margin-left:4px;}
 .wx .wxDesc{font-size:.9rem; color:var(--sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .wx .wxDesc.rain{color:var(--accent); font-weight:700;}
+.wx .wxHum{font-size:.82rem; color:#5e9be0; font-weight:700; flex:none;}
 .wx .wxMore{margin-left:auto; font-size:.82rem; color:var(--sub); flex:none;}
+/* living-account balance card (right column, under calendar) */
+.moneyCard{cursor:pointer; margin-top:14px;}
+.mcLabel{display:flex; align-items:center; font-size:.85rem; color:var(--sub); font-weight:700;}
+.mcLabel .mcMore{margin-left:auto; font-weight:400;}
+.mcBal{font-size:2.2rem; font-weight:800; margin-top:6px; letter-spacing:-.01em;}
+.mcBal.muted{font-size:1rem; font-weight:600; color:var(--sub); margin-top:8px;}
+@media(min-width:860px){ .mcBal{font-size:2.6rem;} }
+@media(min-width:860px) and (max-height:840px){
+  .moneyCard{padding:13px 16px;}
+  .mcBal{font-size:2.1rem;}
+}
+/* account sheet */
+.acctBal{font-size:2rem; font-weight:800; margin:6px 2px 2px; display:flex; align-items:baseline; gap:8px;}
+.acctBal small{font-size:.8rem; font-weight:600; color:var(--sub);}
+.acctSub{font-size:.9rem; color:var(--sub); margin:0 2px 4px;}
+.acctSub b{color:var(--ink); font-weight:800;}
+.txRow{display:flex; align-items:center; gap:10px; padding:9px 6px; border-bottom:1px dashed var(--line);}
+.txRow:last-child{border-bottom:none;}
+.txRow .txDate{width:3.4em; font-weight:700; font-size:.85rem; color:var(--sub); flex:none;}
+.txRow .txMemo{flex:1; font-size:.92rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.txRow .txAmt{font-weight:800; font-size:.95rem; flex:none; min-width:5em; text-align:right;}
+
 /* hourly sheet */
 .hourly{display:flex; flex-direction:column;}
 .hDate{font-size:.76rem; font-weight:800; color:var(--accent); letter-spacing:.03em;
@@ -209,4 +233,17 @@ button.chip{cursor:pointer; font-family:inherit;}
 .hRow .hIco{font-size:1.15rem; width:1.5em; text-align:center; flex:none;}
 .hRow .hDesc{flex:1; font-size:.88rem; color:var(--sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .hRow .hPop{font-size:.8rem; color:#5e9be0; flex:none;}
+.hRow .hHum{font-size:.8rem; color:#7aa5c9; flex:none;}
 .hRow .hT{font-weight:800; font-size:.95rem; min-width:2.6em; text-align:right; flex:none;}
+
+/* classic iPad landscape (~1024×768): 넓지만 세로가 짧음 → 왼쪽 컬럼 조이기 */
+@media(min-width:860px) and (max-height:840px){
+  .topRow{margin-bottom:6px;}
+  .clock{padding:2px 4px 10px;}
+  .clock .time{font-size:3.4rem;}
+  .clock .date{font-size:1rem; margin-top:3px;}
+  .wx{margin-bottom:8px; padding:9px 14px;}
+  .wx .wxIcon{font-size:1.45rem;}
+  .card{padding:12px 16px;}
+  .chore{padding:10px 2px;}
+}

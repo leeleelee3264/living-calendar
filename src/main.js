@@ -2,10 +2,11 @@
 import { S, saveSettings, DONE, OVR, persistDone, persistOvr } from './storage.js';
 import { ymd, parseYMD, choresFor } from './core.js';
 import { fetchWeather } from './weather.js';
+import { fetchAccount } from './livingAccount.js';
 import {
   $, view, initSettings,
   renderAll, renderCalendar, renderClock,
-  applyTheme, applySleep, applyShift, renderWeather, renderSheet, wakeSleep,
+  applyTheme, applySleep, applyShift, renderWeather, renderAccount, renderSheet, wakeSleep,
 } from './ui.js';
 
 /* ---------- 상호작용 ---------- */
@@ -35,11 +36,18 @@ function openWeatherSheet(){
   renderSheet();
   $('#sheetWrap').classList.add('open');
 }
+function openAccountSheet(){
+  view.sheetMode = 'account'; view.sheetDateStr = null;
+  renderSheet();
+  $('#sheetWrap').classList.add('open');
+  refreshAccount();   // 열 때 최신값 시도 (URL 방금 넣은 경우 대비)
+}
 // 렌더된 HTML 의 인라인 핸들러(onclick/onchange)에서 참조 → window 노출
 window.toggleDone = toggleDone;
 window.swapWho = swapWho;
 window.openSheet = openSheet;
 window.openWeatherSheet = openWeatherSheet;
+window.openAccountSheet = openAccountSheet;
 
 /* ---------- 정적 요소 이벤트 배선 ---------- */
 $('#sheetWrap').addEventListener('click', e=>{
@@ -59,11 +67,16 @@ $('#btnFull').onclick = ()=>{
 
 initSettings();
 
-/* ---------- 날씨 갱신 (데이터 fetch → 렌더) ---------- */
+/* ---------- 데이터 갱신 (fetch → 렌더) ---------- */
 async function refreshWeather(){
   await fetchWeather();
   renderWeather();
   if(view.sheetMode==='weather') renderSheet();
+}
+async function refreshAccount(){
+  await fetchAccount();
+  renderAccount();
+  if(view.sheetMode==='account') renderSheet();
 }
 
 /* ---------- 상시 노출: 시계 틱 + 자정 롤오버 + 자동 테마 + 번인 방지 ---------- */
@@ -73,12 +86,13 @@ function tick(){
   if(nowD !== view.curDate){
     view.curDate = nowD;
     const n = new Date(); view.y = n.getFullYear(); view.m = n.getMonth();
-    renderAll(); refreshWeather();
+    renderAll(); refreshWeather(); refreshAccount();
   }
 }
 setInterval(tick, 5000);
-refreshWeather();                       // 로드 즉시 1회
-setInterval(refreshWeather, 1800000);   // 30분마다 갱신
+refreshWeather();  refreshAccount();    // 로드 즉시 1회
+setInterval(refreshWeather, 1800000);   // 날씨 30분마다
+setInterval(refreshAccount, 1800000);   // 생활비 30분마다
 
 // 심야 모드 깨우기: 어떤 터치든 마지막 터치 시점부터 1분 유지
 document.addEventListener('pointerdown', wakeSleep);
