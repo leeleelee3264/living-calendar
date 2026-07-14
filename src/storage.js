@@ -3,11 +3,8 @@
 // 스키마 변경 시 키 버전을 올려 구 설정이 새 기본값을 덮지 않게 한다.
 
 export const DEFAULTS = {
-  lang:'ko',
-  theme:'auto',
-  darkStart:21, darkEnd:7,
+  accent:'#7ec8a3',
   sleep:{on:true, start:0, end:6},
-  view:'week',
   anchor:'2026-07-01',
   account:{url:''},
   people:{A:{name:'Person A', color:'#6d8dff'}, B:{name:'Person B', color:'#ff85a5'}},

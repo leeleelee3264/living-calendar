@@ -1,12 +1,12 @@
 // 앱 진입점 · 컨트롤러: 상호작용 정의, 이벤트 배선, 상시 노출용 타이머.
-import { S, saveSettings, DONE, OVR, persistDone, persistOvr } from './storage.js';
+import { DONE, OVR, persistDone, persistOvr } from './storage.js';
 import { ymd, parseYMD, choresFor } from './core.js';
 import { fetchWeather } from './weather.js';
 import { fetchAccount } from './livingAccount.js';
 import {
   $, view, initSettings,
   renderAll, renderCalendar, renderClock,
-  applyTheme, applySleep, applyShift, renderWeather, renderAccount, renderSheet, wakeSleep,
+  applySleep, applyShift, renderWeather, renderAccount, renderSheet, wakeSleep,
 } from './ui.js';
 
 /* ---------- 상호작용 ---------- */
@@ -59,11 +59,6 @@ $('#sheetWrap').addEventListener('click', e=>{
 $('#btnPrev').onclick = ()=>{ view.m--; if(view.m<0){view.m=11;view.y--;} renderCalendar(); };
 $('#btnNext').onclick = ()=>{ view.m++; if(view.m>11){view.m=0;view.y++;} renderCalendar(); };
 $('#btnCalToday').onclick = ()=>{ const n=new Date(); view.y=n.getFullYear(); view.m=n.getMonth(); renderCalendar(); };
-$('#btnLang').onclick = ()=>{ S.lang = S.lang==='ko' ? 'en' : 'ko'; saveSettings(); renderAll(); };
-$('#btnFull').onclick = ()=>{
-  if(document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen().catch(()=>{});
-};
 
 initSettings();
 
@@ -79,9 +74,9 @@ async function refreshAccount(){
   if(view.sheetMode==='account') renderSheet();
 }
 
-/* ---------- 상시 노출: 시계 틱 + 자정 롤오버 + 자동 테마 + 번인 방지 ---------- */
+/* ---------- 상시 노출: 시계 틱 + 자정 롤오버 + 번인 방지 ---------- */
 function tick(){
-  renderClock(); applyTheme(); applySleep(); applyShift();
+  renderClock(); applySleep(); applyShift();
   const nowD = ymd(new Date());
   if(nowD !== view.curDate){
     view.curDate = nowD;
