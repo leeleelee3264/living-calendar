@@ -1,6 +1,6 @@
 // 도메인 로직: 날짜 계산·포맷 + 스케줄 엔진.
 // 로테이션은 S.anchor 가 포함된 주를 기준으로 센다.
-import { DAY, WD_KO } from './data.js';
+import { DAY, WD, WD_FULL, MON_SHORT } from './data.js';
 import { S, OVR } from './storage.js';
 
 /* ---------- 날짜 ---------- */
@@ -41,10 +41,10 @@ export function inHourRange(h, start, end){
 }
 
 export function fmtDate(d){
-  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${WD_KO[d.getDay()]})`;
+  return `${WD_FULL[d.getDay()]}, ${MON_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 export function fmtShort(d){
-  return `${d.getMonth()+1}/${d.getDate()} (${WD_KO[d.getDay()]})`;
+  return `${MON_SHORT[d.getMonth()]} ${d.getDate()} (${WD[d.getDay()]})`;
 }
 
 export function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }

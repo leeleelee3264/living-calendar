@@ -1,6 +1,6 @@
 // 뷰 계층: 화면 렌더링 + 설정 다이얼로그. 상태를 읽어 DOM 을 그린다.
 // (이벤트 배선·상호작용은 main.js)
-import { CHORES, NTH, WD_KO } from './data.js';
+import { CHORES, NTH, WD, WD_FULL, MON_SHORT, MON_FULL } from './data.js';
 import { S, DONE, saveSettings, resetSettings } from './storage.js';
 import {
   ymd, parseYMD, fmtDate, fmtShort, inHourRange,
@@ -87,7 +87,7 @@ function choreRow(c, ds){
   const ch = CHORES[c.id];
   const swapped = c.who !== c.base;
   const chip = c.who==='both'
-    ? `<span class="chip"><span class="dot" style="background:var(--ac)"></span><span class="nm">같이</span></span>`
+    ? `<span class="chip"><span class="dot" style="background:var(--ac)"></span><span class="nm">Both</span></span>`
     : (()=>{ const p = S.people[c.who];
         return `<button class="chip tap" onclick="swapWho(event,'${ds}','${c.id}')">
           <span class="dot" style="background:${p.color}"></span>
@@ -96,7 +96,7 @@ function choreRow(c, ds){
   return `<div class="chore ${done?'done':''}" onclick="toggleDone('${ds}','${c.id}')">
     <span class="cbox">${done?CHECK:''}</span>
     <span class="cicon">${svgIcon(ch.icon, 20)}</span>
-    <span class="cname"><span class="ttl">${ch.ko}</span>${freq}</span>
+    <span class="cname"><span class="ttl">${ch.name}</span>${freq}</span>
     ${chip}
   </div>`;
 }
@@ -104,7 +104,7 @@ function choreRow(c, ds){
 export function renderClock(){
   const n = new Date();
   $('#clkTime').textContent = String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
-  $('#clkDate').textContent = `${n.getMonth()+1}월 ${n.getDate()}일 ${WD_KO[n.getDay()]}요일`;
+  $('#clkDate').textContent = `${WD_FULL[n.getDay()]}, ${MON_SHORT[n.getMonth()]} ${n.getDate()}`;
 }
 
 /* ---------- 상시 노출 대응: 심야 화면끄기 · 픽셀 시프트 ---------- */
@@ -147,8 +147,8 @@ export function renderToday(){
   $('#todayCard').innerHTML =
     `<div class="cardHead">
       <div>
-        <h2>오늘 할 일</h2>
-        <div class="subline">${doneN===total ? '오늘 할 일 끝!' : `${doneN} / ${total} 완료`}</div>
+        <h2>Today</h2>
+        <div class="subline">${doneN===total ? 'All done for today!' : `${doneN} / ${total} done`}</div>
       </div>
       <div class="ring">
         <svg width="60" height="60" viewBox="0 0 60 60">
@@ -161,11 +161,11 @@ export function renderToday(){
       </div>
     </div>`
     + list.map(c=>choreRow(c, ds)).join('')
-    + `<div class="hint">줄을 누르면 완료 체크 · 이름표를 누르면 그날만 담당 교체 · 체크는 이 기기에만 저장돼요</div>`;
+    + `<div class="hint">Tap a row to check it off · tap a name to swap for that day · checks are saved on this device only</div>`;
 }
 
 export function renderCalendar(){
-  $('#calTitle').textContent = `${view.y}년 ${view.m+1}월`;
+  $('#calTitle').textContent = `${MON_FULL[view.m]} ${view.y}`;
   const firstWd = new Date(view.y, view.m, 1).getDay();
   const dim = new Date(view.y, view.m+1, 0).getDate();
   const cells = Math.ceil((firstWd+dim)/7)*7;
@@ -192,8 +192,8 @@ export function renderCalendar(){
   $('#calLegend').innerHTML =
     `<span class="li"><span class="dot" style="background:${S.people.A.color}"></span>${esc(S.people.A.name)}</span>`
     + `<span class="li"><span class="dot" style="background:${S.people.B.color}"></span>${esc(S.people.B.name)}</span>`
-    + `<span class="li"><span class="dot" style="background:${S.accent}"></span>같이</span>`
-    + `<span class="note">매일 하는 일은 생략 · 날짜를 누르면 전체 목록</span>`;
+    + `<span class="li"><span class="dot" style="background:${S.accent}"></span>Both</span>`
+    + `<span class="note">Daily chores hidden · tap a date for the full list</span>`;
 }
 
 /* ---------- 날씨 바 / 시간별 시트 ---------- */
@@ -201,28 +201,28 @@ export function renderWeather(){
   const el = $('#wxBar');
   if(!el) return;
   const win = wx24();
-  if(!win){ el.innerHTML = `<span class="wxDesc">날씨 불러오는 중…</span>`; return; }
+  if(!win){ el.innerHTML = `<span class="wxDesc">Loading weather…</span>`; return; }
   const temps = win.map(x=>x.temp);
   const code = repWeather(win);
   const w = wxInfo(code);
   const ic = wxIconFor(code);
   const hum = win[0] && win[0].humidity!=null
-    ? `<span class="wxHum">습도 ${win[0].humidity}%</span>` : `<span class="wxHum"></span>`;
+    ? `<span class="wxHum">Humidity ${win[0].humidity}%</span>` : `<span class="wxHum"></span>`;
   el.innerHTML =
     `<span class="wxIcon" style="color:${ic.color}">${svgIcon(ic.name, 26, 1.6)}</span>`
     + `<span class="wxTemp">${Math.max(...temps)}°<span class="wxMin">/ ${Math.min(...temps)}°</span></span>`
-    + `<span class="wxDesc ${w.precip?'rain':''}">${w.ko}</span>`
+    + `<span class="wxDesc ${w.precip?'rain':''}">${w.en}</span>`
     + hum
     + `<span class="wxMore">›</span>`;
 }
 function wxDateLabel(ds){
   const d = parseYMD(ds);
-  return `${d.getMonth()+1}월 ${d.getDate()}일 (${WD_KO[d.getDay()]})`;
+  return `${WD_FULL[d.getDay()]}, ${MON_SHORT[d.getMonth()]} ${d.getDate()}`;
 }
 export function renderWeatherSheet(){
-  const title = '앞으로 24시간 · 서울';
+  const title = 'Next 24 hours · Seoul';
   const win = wx24();
-  if(!win){ $('#sheet').innerHTML = `<h3>${title}</h3><p class="hint">날씨 정보를 불러오지 못했어요.</p>`; return; }
+  if(!win){ $('#sheet').innerHTML = `<h3>${title}</h3><p class="hint">Couldn't load weather.</p>`; return; }
   const nowStr = ymd(new Date()), nowH = new Date().getHours();
   let lastDate = null, rows = '';
   for(const x of win){
@@ -233,39 +233,39 @@ export function renderWeatherSheet(){
     const hum = (x.humidity!=null) ? `<span class="hHum">${svgIcon('drop',12,2)}${x.humidity}%</span>` : '';
     const now = (x.date===nowStr && x.h===nowH) ? 'now' : '';
     rows += `<div class="hRow ${now}">
-      <span class="hH">${String(x.h).padStart(2,'0')}시</span>
+      <span class="hH">${String(x.h).padStart(2,'0')}:00</span>
       <span class="hIco" style="color:${ic.color}">${svgIcon(ic.name,18,1.8)}</span>
-      <span class="hDesc">${w.ko}</span>${pop}${hum}<span class="hT">${x.temp}°</span></div>`;
+      <span class="hDesc">${w.en}</span>${pop}${hum}<span class="hT">${x.temp}°</span></div>`;
   }
   $('#sheet').innerHTML = `<h3>${title}</h3><div class="hourly">${rows}</div>`;
 }
 
 /* ---------- 생활비 카드 / 상세 시트 ---------- */
-function fmtWon(n){ return (n==null ? '—' : Number(n).toLocaleString('ko-KR')) + '원'; }
+function fmtWon(n){ return n==null ? '—' : '₩' + Number(n).toLocaleString('en-US'); }
 
 export function renderAccount(){
   const el = $('#moneyCard');
   if(!el) return;
   const head = `<div class="mcHead"><span class="ic">${svgIcon('coins',22)}</span>
-    <span class="t">생활비</span><span class="more">›</span></div>`;
+    <span class="t">Living expenses</span><span class="more">›</span></div>`;
   let body;
-  if(!hasAccountUrl()) body = `<div class="mcBal muted">설정에서 연결</div>`;
+  if(!hasAccountUrl()) body = `<div class="mcBal muted">Connect in settings</div>`;
   else{
     const a = accountData();
     body = (a && a.balance!=null)
       ? `<div class="mcRow">
-          <div><div class="mcLbl">남은 생활비</div><div class="mcBal">${fmtWon(a.balance)}</div></div>
-          <div class="mcSpent"><div class="mcLbl">이번 달 지출</div><div class="v">${fmtWon(thisMonthTotal())}</div></div>
+          <div><div class="mcLbl">Remaining</div><div class="mcBal">${fmtWon(a.balance)}</div></div>
+          <div class="mcSpent"><div class="mcLbl">This month</div><div class="v">${fmtWon(thisMonthTotal())}</div></div>
         </div>`
-      : `<div class="mcBal muted">불러오는 중…</div>`;
+      : `<div class="mcBal muted">Loading…</div>`;
   }
   el.innerHTML = head + body;
 }
 
 export function renderAccountSheet(){
-  const title = '생활비 통장';
+  const title = 'Living expenses';
   if(!hasAccountUrl()){
-    $('#sheet').innerHTML = `<h3>${title}</h3><p class="hint">설정 → 생활비에서 구글 시트 CSV 게시 URL 을 넣으면 잔액과 내역이 보여요.</p>`;
+    $('#sheet').innerHTML = `<h3>${title}</h3><p class="hint">Add a Google Sheet CSV URL in Settings → Living expenses to see the balance and history.</p>`;
     return;
   }
   const a = accountData();
@@ -277,12 +277,12 @@ export function renderAccountSheet(){
     return `<div class="txRow"><span class="txDate">${md}</span>
       <span class="txMemo">${esc(t.memo||'')}</span>
       <span class="txAmt">${fmtWon(t.amount)}</span></div>`;
-  }).join('') : `<p class="hint">내역이 아직 없어요.</p>`;
+  }).join('') : `<p class="hint">No transactions yet.</p>`;
 
   $('#sheet').innerHTML = `<h3>${title}</h3>
-    <div class="acctBal">${bal}<small>남은 잔액</small></div>
-    <div class="acctSub">이번 달 지출 <b>${month}</b></div>
-    <div class="hDate">최근 내역</div>${rows}`;
+    <div class="acctBal">${bal}<small>Remaining</small></div>
+    <div class="acctSub">This month <b>${month}</b></div>
+    <div class="hDate">Recent</div>${rows}`;
 }
 
 // 바텀시트: 날씨 / 생활비 / 날짜별 집안일 목록
@@ -358,7 +358,7 @@ function segBtns(k, opts, cur, extra){
 }
 function dSelFull(key, val){
   return `<select data-sel="${key}">` +
-    WD_KO.map((w,i)=>`<option value="${i}" ${i===val?'selected':''}>${w}요일</option>`).join('') + `</select>`;
+    WD_FULL.map((w,i)=>`<option value="${i}" ${i===val?'selected':''}>${w}</option>`).join('') + `</select>`;
 }
 function nSelM(key, val){
   return `<select data-sel="${key}">` +
@@ -366,7 +366,7 @@ function nSelM(key, val){
 }
 function hSel(key, val){
   let opts = '';
-  for(let h=0; h<24; h++) opts += `<option value="${h}" ${h===val?'selected':''}>${h}시</option>`;
+  for(let h=0; h<24; h++) opts += `<option value="${h}" ${h===val?'selected':''}>${String(h).padStart(2,'0')}:00</option>`;
   return `<select data-sel="${key}">${opts}</select>`;
 }
 
@@ -382,11 +382,11 @@ function renderSettingsBody(){
   const isFull = !!fsElement();
 
   $('#dlg').innerHTML = `<div class="dlgIn">
-    <h2>${svgIcon('gear',19)} 설정</h2>
-    <p class="subNote">변경하면 바로 적용돼요 · 이름표를 누르면 담당이 바뀌어요</p>
+    <h2>${svgIcon('gear',19)} Settings</h2>
+    <p class="subNote">Changes apply instantly · tap a name to change who does it</p>
 
     <div class="secCard">
-      <div class="sec">사람</div>
+      <div class="sec">People</div>
       <div class="frow"><input type="text" data-inp="people.A.name" value="${esc(S.people.A.name)}">
         <input type="color" data-inp="people.A.color" value="${S.people.A.color}"></div>
       <div class="frow"><input type="text" data-inp="people.B.name" value="${esc(S.people.B.name)}">
@@ -394,52 +394,52 @@ function renderSettingsBody(){
     </div>
 
     <div class="secCard">
-      <div class="sec">매일 하는 일</div>
-      <div class="frow"><label>${svgIcon('trash',16)}${CHORES.trashBathroom.ko}</label>
+      <div class="sec">Daily</div>
+      <div class="frow"><label>${svgIcon('trash',16)}${CHORES.trashBathroom.name}</label>
         ${pBtn(S.daily.trashBathroom, `data-act="flip" data-path="daily.trashBathroom"`)}</div>
-      <div class="frow"><label>${svgIcon('recycle',16)}${CHORES.trashRecycle.ko}</label>
+      <div class="frow"><label>${svgIcon('recycle',16)}${CHORES.trashRecycle.name}</label>
         ${pBtn(S.daily.trashRecycle, `data-act="flip" data-path="daily.trashRecycle"`)}</div>
-      <div class="frow"><label>${svgIcon('broom',16)}${CHORES.vacuum.ko}</label>
+      <div class="frow"><label>${svgIcon('broom',16)}${CHORES.vacuum.name}</label>
         ${pBtn(S.daily.vacuum, `data-act="flip" data-path="daily.vacuum"`)}</div>
-      <div class="frow"><label>${svgIcon('bed',16)}${CHORES.makeBed.ko}</label>
-        ${segBtns('daily.makeBed', [{v:'both',label:'같이'},{v:'A',label:esc(S.people.A.name)},{v:'B',label:esc(S.people.B.name)}], S.daily.makeBed)}</div>
+      <div class="frow"><label>${svgIcon('bed',16)}${CHORES.makeBed.name}</label>
+        ${segBtns('daily.makeBed', [{v:'both',label:'Both'},{v:'A',label:esc(S.people.A.name)},{v:'B',label:esc(S.people.B.name)}], S.daily.makeBed)}</div>
     </div>
 
     <div class="secCard">
-      <div class="sec">빨래 (주 3회)</div>
-      <div class="frow"><label>${svgIcon('basket',16)}세탁 요일</label>
-        <span style="display:flex;gap:4px;flex-wrap:wrap;">${WD_KO.map((w,i)=>
+      <div class="sec">Laundry (3×/week)</div>
+      <div class="frow"><label>${svgIcon('basket',16)}Days</label>
+        <span style="display:flex;gap:4px;flex-wrap:wrap;">${WD.map((w,i)=>
           `<button class="dayb ${S.laundry.days.includes(i)?'on':''}" data-act="ld" data-v="${i}">${w}</button>`).join('')}</span></div>
-      <div class="frow"><label>담당</label>
+      <div class="frow"><label>Who</label>
         ${pBtn(S.laundry.owner, `data-act="flip" data-path="laundry.owner"`)}</div>
     </div>
 
     <div class="secCard">
-      <div class="sec">물걸레질 (주 1회)</div>
-      <div class="frow"><label>${svgIcon('droplets',16)}요일</label>${dSelFull('mop.day', S.mop.day)}
-        ${segBtns('mop.mode', [{v:'rotate',label:'번갈아'},{v:'fixed',label:'고정'}], S.mop.mode)}</div>
-      <div class="frow"><label>${S.mop.mode==='fixed' ? '담당' : '다음 차례 · '+fmtShort(mopNext)}</label>
+      <div class="sec">Mopping (weekly)</div>
+      <div class="frow"><label>${svgIcon('droplets',16)}Day</label>${dSelFull('mop.day', S.mop.day)}
+        ${segBtns('mop.mode', [{v:'rotate',label:'Alternate'},{v:'fixed',label:'Fixed'}], S.mop.mode)}</div>
+      <div class="frow"><label>${S.mop.mode==='fixed' ? 'Who' : 'Next · '+fmtShort(mopNext)}</label>
         ${S.mop.mode==='fixed'
           ? pBtn(S.mop.first, `data-act="flip" data-path="mop.first"`)
           : pBtn(mopWho, `data-act="flipd" data-kind="mop"`)}</div>
     </div>
 
     <div class="secCard">
-      <div class="sec">화장실 청소 (2주 1회)</div>
-      <div class="frow"><label>${svgIcon('toilet',16)}요일</label>${dSelFull('bathroomClean.day', bath.day)}</div>
-      <div class="frow"><label>다음 차례</label>
+      <div class="sec">Bathroom (biweekly)</div>
+      <div class="frow"><label>${svgIcon('toilet',16)}Day</label>${dSelFull('bathroomClean.day', bath.day)}</div>
+      <div class="frow"><label>Next</label>
         ${segBtns('bathroomClean.startWeek',
           [{v:mod(weekIndex(bathC1),2), label:fmtShort(bathC1)},
            {v:mod(weekIndex(bathC2),2), label:fmtShort(bathC2)}],
           bath.startWeek, 'data-num="1"')}</div>
-      <div class="frow"><label>담당 · ${fmtShort(bathNext)}</label>
+      <div class="frow"><label>Who · ${fmtShort(bathNext)}</label>
         ${pBtn(bathWho, `data-act="flipd" data-kind="bath"`)}</div>
     </div>
 
     <div class="secCard">
-      <div class="sec">침구 세탁 (2주 1회 · 같이)</div>
-      <div class="frow"><label>${svgIcon('bed',16)}요일</label>${dSelFull('bedding.day', S.bedding.day)}</div>
-      <div class="frow"><label>다음 차례</label>
+      <div class="sec">Bedding (biweekly · both)</div>
+      <div class="frow"><label>${svgIcon('bed',16)}Day</label>${dSelFull('bedding.day', S.bedding.day)}</div>
+      <div class="frow"><label>Next</label>
         ${segBtns('bedding.startWeek',
           [{v:mod(weekIndex(bedC1),2), label:fmtShort(bedC1)},
            {v:mod(weekIndex(bedC2),2), label:fmtShort(bedC2)}],
@@ -447,40 +447,40 @@ function renderSettingsBody(){
     </div>
 
     <div class="secCard">
-      <div class="sec">냉장고 청소 (월 1회)</div>
-      <div class="frow"><label>${svgIcon('fridge',16)}매월</label>
+      <div class="sec">Fridge (monthly)</div>
+      <div class="frow"><label>${svgIcon('fridge',16)}Every</label>
         ${nSelM('fridge.nth', S.fridge.nth)} ${dSelFull('fridge.day', S.fridge.day)}</div>
-      <div class="frow"><label>다음 차례 · ${fmtShort(frNext)}</label>
+      <div class="frow"><label>Next · ${fmtShort(frNext)}</label>
         ${pBtn(frWho, `data-act="flipd" data-kind="fridge"`)}</div>
     </div>
 
     <div class="secCard">
-      <div class="sec">생활비</div>
+      <div class="sec">Living expenses</div>
       <div class="frow" style="flex-direction:column;align-items:stretch;gap:5px;">
-        <label style="min-width:0">${svgIcon('coins',16)}구글 시트 CSV 게시 URL</label>
+        <label style="min-width:0">${svgIcon('coins',16)}Google Sheet CSV URL</label>
         <input type="url" data-inp="account.url" value="${esc(S.account.url)}"
           placeholder="https://docs.google.com/.../pub?output=csv" style="width:100%">
       </div>
-      <p class="help">시트 → 파일 → 공유 → 웹에 게시 → CSV 선택 → URL 붙여넣기. URL 은 이 기기에만 저장돼요.</p>
+      <p class="help">Sheet → File → Share → Publish to web → CSV, then paste the URL. Stored on this device only.</p>
     </div>
 
     <div class="secCard">
-      <div class="sec">화면</div>
-      <div class="frow"><label>${svgIcon('expand',16)}전체화면</label>
-        <button class="fullBtn" data-act="full">${isFull?'끄기':'켜기'}</button></div>
-      <div class="frow"><label>포인트 색</label>
+      <div class="sec">Display</div>
+      <div class="frow"><label>${svgIcon('expand',16)}Fullscreen</label>
+        <button class="fullBtn" data-act="full">${isFull?'Off':'On'}</button></div>
+      <div class="frow"><label>Accent</label>
         <span class="swatches">${ACCENTS.map(c=>
           `<button class="sw ${S.accent===c?'on':''}" data-act="accent" data-v="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}</span></div>
-      <div class="frow"><label>심야 화면 끄기</label>
-        ${segBtns('sleep.on', [{v:1,label:'켬'},{v:0,label:'끔'}], S.sleep.on?1:0, 'data-bool="1"')}
+      <div class="frow"><label>Night off</label>
+        ${segBtns('sleep.on', [{v:1,label:'On'},{v:0,label:'Off'}], S.sleep.on?1:0, 'data-bool="1"')}
         ${hSel('sleep.start', S.sleep.start)} ~ ${hSel('sleep.end', S.sleep.end)}</div>
-      <p class="help">심야엔 검은 화면에 시계만 은은하게 떠요. 화면을 탭하면 1분간 다시 보여요. (번인 방지)</p>
+      <p class="help">At night the screen goes black with just a faint clock. Tap to show it for 1 minute. (burn-in protection)</p>
     </div>
 
     <div class="dlgBtns">
-      <button class="primary" data-act="close">닫기</button>
+      <button class="primary" data-act="close">Close</button>
     </div>
-    <button class="resetLink" data-act="reset">설정 초기화</button>
+    <button class="resetLink" data-act="reset">Reset settings</button>
   </div>`;
 }
 
@@ -511,7 +511,7 @@ export function initSettings(){
       return;
     }
     if(act==='reset'){
-      if(confirm('설정을 기본값으로 되돌릴까요?')){
+      if(confirm('Reset all settings to defaults?')){
         resetSettings();
         commitSettings();
       }

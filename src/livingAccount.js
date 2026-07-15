@@ -55,9 +55,10 @@ function parseSheet(rows){
   const txs = [];
   for(const r of rows){
     const a = (r[0] || '').trim();
+    const key = a.toLowerCase();
     if(!inTx){
-      if(a === '잔액') balance = num(r[1]);
-      else if(a === '날짜') inTx = true;
+      if(a === '잔액' || key === 'balance') balance = num(r[1]);
+      else if(a === '날짜' || key === 'date') inTx = true;
     }else{
       if(!a) continue;
       const amount = num(r[1]);
