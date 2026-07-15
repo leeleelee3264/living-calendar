@@ -306,6 +306,17 @@ export function renderAll(){
 
 const ACCENTS = ['#7ec8a3', '#e6a95c', '#6ea8ff', '#c9a2e0'];
 
+/* ---------- 전체화면 (iOS Safari 는 webkit 접두사 필요) ---------- */
+function fsElement(){ return document.fullscreenElement || document.webkitFullscreenElement || null; }
+function enterFull(el){
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+  if(fn){ try{ const p = fn.call(el); if(p && p.catch) p.catch(()=>{}); }catch(e){} }
+}
+function exitFull(){
+  const fn = document.exitFullscreen || document.webkitExitFullscreen;
+  if(fn){ try{ fn.call(document); }catch(e){} }
+}
+
 function getPath(o, p){ return p.split('.').reduce((x,k)=>x[k], o); }
 function setPath(o, p, v){
   const ks = p.split('.'); let x = o;
@@ -368,7 +379,7 @@ function renderSettingsBody(){
   const bathC1 = nextWeekdayDate(bath.day), bathC2 = addDays(bathC1, 7);
   const bedC1 = nextWeekdayDate(S.bedding.day), bedC2 = addDays(bedC1, 7);
   const frNext = nextMonthly(S.fridge), frWho = pick(S.fridge.first, monthIndex(frNext));
-  const isFull = !!document.fullscreenElement;
+  const isFull = !!fsElement();
 
   $('#dlg').innerHTML = `<div class="dlgIn">
     <h2>${svgIcon('gear',19)} 설정</h2>
@@ -481,9 +492,8 @@ export function initSettings(){
   $('#btnSet').onclick = openSettings;
 
   // 전체화면 상태가 바뀌면 (설정 버튼 또는 ESC) 버튼 라벨 갱신
-  document.addEventListener('fullscreenchange', ()=>{
-    if($('#dlg').open) renderSettingsBody();
-  });
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>
+    document.addEventListener(ev, ()=>{ if($('#dlg').open) renderSettingsBody(); }));
 
   $('#dlg').addEventListener('click', e=>{
     if(e.target === e.currentTarget){ $('#dlg').close(); return; }  // 바깥(백드롭) 클릭 → 닫기 (변경은 이미 저장됨)
@@ -492,8 +502,12 @@ export function initSettings(){
     const act = b.dataset.act;
     if(act==='close'){ $('#dlg').close(); return; }
     if(act==='full'){
-      if(document.fullscreenElement) document.exitFullscreen();
-      else document.documentElement.requestFullscreen().catch(()=>{});
+      const goFull = !fsElement();
+      // 모달 다이얼로그를 top layer 에서 먼저 내린다: iOS Safari 는 모달이 열린 채 전체화면에
+      // 진입하면 진입 후 페이지 나머지가 inert 로 남아 ⚙️ 버튼이 안 눌리는 버그가 있음
+      $('#dlg').close();
+      if(goFull) enterFull(document.documentElement);
+      else exitFull();
       return;
     }
     if(act==='reset'){
