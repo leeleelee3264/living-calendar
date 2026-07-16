@@ -6,7 +6,6 @@ export const DEFAULTS = {
   accent:'#7ec8a3',
   sleep:{on:true, start:0, end:6},
   anchor:'2026-07-01',
-  account:{url:''},
   people:{A:{name:'Person A', color:'#6d8dff'}, B:{name:'Person B', color:'#ff85a5'}},
   daily:{trashBathroom:'B', trashRecycle:'A', vacuum:'A', makeBed:'both'},
   laundry:{days:[2,4,6], owner:'B'},

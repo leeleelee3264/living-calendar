@@ -1,81 +1,76 @@
-// 생활비 통장 데이터 서비스 · 구글 시트 "웹에 게시(CSV)" URL 을 keyless fetch.
-// URL 은 코드가 아니라 설정(S.account.url, localStorage)에 저장 → public repo 에 안 남김.
-// 시트 레이아웃:
-//   1행: 잔액, 1250000
-//   3행: 날짜, 금액, 메모, 누가        ← 헤더
-//   4행~: 2026-07-13, 12000, 택시, Ashleigh   (날짜는 YYYY-MM-DD)
-import { S } from './storage.js';
+// 생활비 통장 — 보드 자체가 원본(source of truth).
+// 입력·수정·삭제 모두 앱 안에서 처리하고 localStorage 에 저장한다. (구글 시트 연동 없음)
+// v1 은 시트 CSV 캐시였고, v2 는 자체 장부라 키를 올렸다.
+//   base : 시작 잔액
+//   txs  : [{ id, date:'YYYY-MM-DD', amount(>0), type:'out'|'in', memo }]
+//   잔액 = base − Σ(지출 out) + Σ(입금 in)
+// 다른 모듈에 의존하지 않는 리프 모듈.
 
-export let ACCOUNT = null;
-try{ ACCOUNT = JSON.parse(localStorage.getItem('chores-account-v1') || 'null'); }catch(e){}
+const KEY = 'chores-account-v2';
+
+function load(){
+  try{
+    const a = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if(a && typeof a === 'object'){
+      return { base: Number(a.base) || 0, txs: Array.isArray(a.txs) ? a.txs : [] };
+    }
+  }catch(e){}
+  return { base: 0, txs: [] };
+}
+
+export let ACCOUNT = load();
+function persist(){ localStorage.setItem(KEY, JSON.stringify(ACCOUNT)); }
 
 export function accountData(){ return ACCOUNT; }
-export function hasAccountUrl(){ return !!(S.account && S.account.url && S.account.url.trim()); }
 
-// 이번 달 지출 합계
+// 현재 잔액 = 시작 잔액에서 지출을 빼고 입금을 더한 값
+export function balance(){
+  return ACCOUNT.txs.reduce(
+    (s, t) => s + (t.type === 'in' ? (t.amount || 0) : -(t.amount || 0)),
+    ACCOUNT.base || 0,
+  );
+}
+
+// 이번 달 지출(out) 합계
 export function thisMonthTotal(){
-  if(!ACCOUNT || !ACCOUNT.txs) return 0;
   const n = new Date();
   const pre = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
-  return ACCOUNT.txs.filter(t=>String(t.date).startsWith(pre)).reduce((s,t)=>s+(t.amount||0), 0);
-}
-// 최근 n건 (시트 아래쪽이 최신 → 뒤에서 n개)
-export function recentTxs(n=5){
-  if(!ACCOUNT || !ACCOUNT.txs) return [];
-  return ACCOUNT.txs.slice(-n).reverse();
+  return ACCOUNT.txs
+    .filter(t => t.type !== 'in' && String(t.date).startsWith(pre))
+    .reduce((s, t) => s + (t.amount || 0), 0);
 }
 
-/* ---------- CSV 파싱 (따옴표·콤마 포함 필드 처리) ---------- */
-function parseCSV(text){
-  const rows = [];
-  let row = [], field = '', inQ = false;
-  for(let i=0; i<text.length; i++){
-    const c = text[i];
-    if(inQ){
-      if(c === '"'){ if(text[i+1] === '"'){ field += '"'; i++; } else inQ = false; }
-      else field += c;
-    }else{
-      if(c === '"') inQ = true;
-      else if(c === ',') { row.push(field); field = ''; }
-      else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
-      else if(c !== '\r') field += c;
-    }
-  }
-  if(field.length || row.length){ row.push(field); rows.push(row); }
-  return rows;
+// 최근 n건 (뒤에 추가된 게 최신 → 뒤에서 n개, 최신순)
+export function recentTxs(n = 8){ return ACCOUNT.txs.slice(-n).reverse(); }
+
+function ymdToday(){
+  const d = new Date();
+  return d.getFullYear() + '-'
+    + String(d.getMonth()+1).padStart(2,'0') + '-'
+    + String(d.getDate()).padStart(2,'0');
 }
-function num(s){
-  if(s == null) return null;
-  const n = Number(String(s).replace(/[^0-9.-]/g, ''));
-  return isNaN(n) ? null : n;
-}
-// 시트 rows → {balance, txs}. "잔액" 셀 + "날짜" 헤더 이후 거래 행.
-function parseSheet(rows){
-  let balance = null, inTx = false;
-  const txs = [];
-  for(const r of rows){
-    const a = (r[0] || '').trim();
-    const key = a.toLowerCase();
-    if(!inTx){
-      if(a === '잔액' || key === 'balance') balance = num(r[1]);
-      else if(a === '날짜' || key === 'date') inTx = true;
-    }else{
-      if(!a) continue;
-      const amount = num(r[1]);
-      if(amount != null) txs.push({ date:a, amount, memo:(r[2]||'').trim(), who:(r[3]||'').trim() });
-    }
-  }
-  return { balance, txs };
+function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// 거래 추가 — 금액은 항상 양수로 저장하고 type 으로 방향을 구분한다
+export function addTx({ amount, type = 'out', memo = '', date } = {}){
+  const amt = Math.abs(Number(amount)) || 0;
+  if(amt <= 0) return null;
+  const tx = {
+    id: newId(),
+    date: date || ymdToday(),
+    amount: amt,
+    type: type === 'in' ? 'in' : 'out',
+    memo: String(memo || '').trim(),
+  };
+  ACCOUNT.txs.push(tx);
+  persist();
+  return tx;
 }
 
-export async function fetchAccount(){
-  if(!hasAccountUrl()) return ACCOUNT;
-  try{
-    const r = await fetch(S.account.url.trim());
-    if(!r.ok) throw new Error('http '+r.status);
-    const { balance, txs } = parseSheet(parseCSV(await r.text()));
-    ACCOUNT = { balance, txs, fetchedAt: new Date().toISOString() };
-    localStorage.setItem('chores-account-v1', JSON.stringify(ACCOUNT));
-  }catch(e){ /* keep last cached ACCOUNT */ }
-  return ACCOUNT;
+export function deleteTx(id){
+  const i = ACCOUNT.txs.findIndex(t => t.id === id);
+  if(i >= 0){ ACCOUNT.txs.splice(i, 1); persist(); }
 }
+
+// 시작 잔액 설정 (설정 다이얼로그에서 호출)
+export function setBase(n){ ACCOUNT.base = Number(n) || 0; persist(); }

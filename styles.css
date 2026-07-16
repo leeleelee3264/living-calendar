@@ -180,7 +180,42 @@ button{font-family:inherit;}
 .txRow .txDate{width:3.4em; font-family:var(--num); font-weight:600; font-size:13px; color:var(--dim); flex:none;}
 .txRow .txMemo{flex:1; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .txRow .txAmt{font-family:var(--num); font-weight:600; font-size:14.5px; flex:none;
-  min-width:5em; text-align:right;}
+  min-width:4.6em; text-align:right; color:var(--ink);}
+.txRow .txAmt.in{color:var(--ac);}
+.txRow .txDel{flex:none; width:24px; height:24px; border-radius:7px; border:none; cursor:pointer;
+  background:transparent; color:var(--faint); font-size:17px; line-height:1;
+  display:flex; align-items:center; justify-content:center;}
+.txRow .txDel:hover{background:rgba(255,255,255,.06); color:#c07777;}
+
+/* 생활비 입력 폼 */
+.acctAddBtn{display:block; width:100%; margin:12px 0 4px; padding:12px; cursor:pointer;
+  border-radius:12px; border:1px dashed var(--ac); background:var(--acSoft);
+  color:var(--ac); font-family:inherit; font-size:14.5px; font-weight:700;}
+.acctForm{margin:12px 0 4px; padding:14px; border:1px solid var(--line2);
+  background:rgba(255,255,255,.02); border-radius:16px; display:flex; flex-direction:column; gap:10px;}
+.acctForm .afTop{display:flex;}
+.acctForm .afTop .seg{width:100%;}
+.acctForm .afTop .seg button{flex:1;}
+.acctForm .afRow{display:flex; align-items:center; gap:8px;
+  border:1px solid var(--line2); border-radius:11px; background:var(--field); padding:2px 12px;}
+.acctForm .afWon{font-family:var(--num); font-size:22px; font-weight:700; color:var(--sub); flex:none;}
+.acctForm .afAmt{flex:1; min-width:0; border:none; background:transparent; color:var(--ink);
+  font-family:var(--num); font-size:26px; font-weight:700; padding:8px 0; outline:none;}
+.acctForm .afMemo{border:1px solid var(--line2); border-radius:11px; background:var(--field);
+  color:var(--ink); font-family:inherit; font-size:14.5px; padding:11px 12px; outline:none; width:100%;}
+.acctForm .afMemo:focus,.acctForm .afRow:focus-within{border-color:var(--ac);}
+.acctForm .afBtns{display:flex; gap:8px; margin-top:2px;}
+.acctForm .afBtns button{flex:1; padding:11px; border-radius:11px; font-size:14.5px; cursor:pointer;
+  font-family:inherit; font-weight:700;}
+.acctForm .afCancel{border:1px solid var(--line2); background:transparent; color:var(--ink);}
+.acctForm .afAdd{border:1px solid var(--ac); background:var(--ac); color:#0c0d10;}
+
+/* 설정 · 시작 잔액 입력 */
+.baseIn{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line2);
+  border-radius:9px; background:var(--field); padding:0 10px;}
+.baseIn .baseWon{font-family:var(--num); font-size:14px; font-weight:700; color:var(--sub);}
+.baseIn input{border:none; background:transparent; color:var(--ink); font-family:var(--num);
+  font-size:14px; font-weight:600; padding:7px 0; width:100px; outline:none; text-align:right;}
 
 /* 설정 다이얼로그 */
 dialog{border:1px solid var(--line2); border-radius:22px; padding:0; width:min(92vw,480px);

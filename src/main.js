@@ -2,9 +2,9 @@
 import { DONE, OVR, persistDone, persistOvr } from './storage.js';
 import { ymd, parseYMD, choresFor } from './core.js';
 import { fetchWeather } from './weather.js';
-import { fetchAccount } from './livingAccount.js';
+import { addTx, deleteTx } from './livingAccount.js';
 import {
-  $, view, initSettings,
+  $, view, initSettings, resetAcctForm,
   renderAll, renderCalendar, renderClock,
   applySleep, applyShift, renderWeather, renderAccount, renderSheet, wakeSleep,
 } from './ui.js';
@@ -38,9 +38,19 @@ function openWeatherSheet(){
 }
 function openAccountSheet(){
   view.sheetMode = 'account'; view.sheetDateStr = null;
+  resetAcctForm();     // 항상 접힌 상태로 연다
   renderSheet();
   $('#sheetWrap').classList.add('open');
-  refreshAccount();   // 열 때 최신값 시도 (URL 방금 넣은 경우 대비)
+}
+// 생활비 입력 폼: 텍스트 입력은 재렌더 없이 상태만 갱신 (커서 튐 방지)
+function acctFormInput(field, val){ view.acctForm[field] = val; }
+function submitAcct(){
+  const f = view.acctForm;
+  const amt = Number(String(f.amount).replace(/[^0-9.]/g,''));
+  if(!amt || amt <= 0) return;               // 빈/0 금액은 무시
+  addTx({ amount:amt, type:f.type, memo:f.memo });
+  f.amount = ''; f.memo = '';                // 폼은 열어둔 채 값만 비워 연속 입력
+  renderAccount(); renderSheet();
 }
 // 렌더된 HTML 의 인라인 핸들러(onclick/onchange)에서 참조 → window 노출
 window.toggleDone = toggleDone;
@@ -48,13 +58,24 @@ window.swapWho = swapWho;
 window.openSheet = openSheet;
 window.openWeatherSheet = openWeatherSheet;
 window.openAccountSheet = openAccountSheet;
+window.acctFormInput = acctFormInput;
 
 /* ---------- 정적 요소 이벤트 배선 ---------- */
 $('#sheetWrap').addEventListener('click', e=>{
-  if(e.target.id === 'sheetWrap'){
+  if(e.target.id === 'sheetWrap'){                 // 백드롭 클릭 → 닫기
     $('#sheetWrap').classList.remove('open');
     view.sheetDateStr = null; view.sheetMode = null;
+    resetAcctForm();
+    return;
   }
+  const b = e.target.closest('[data-act]');        // 생활비 시트 내부 버튼
+  if(!b) return;
+  const act = b.dataset.act;
+  if(act==='acctOpen'){ view.acctForm.open = true; renderSheet(); }
+  else if(act==='acctClose'){ resetAcctForm(); renderSheet(); }
+  else if(act==='acctType'){ view.acctForm.type = b.dataset.v; renderSheet(); }
+  else if(act==='acctSubmit'){ submitAcct(); }
+  else if(act==='acctDel'){ deleteTx(b.dataset.id); renderAccount(); renderSheet(); }
 });
 $('#btnPrev').onclick = ()=>{ view.m--; if(view.m<0){view.m=11;view.y--;} renderCalendar(); };
 $('#btnNext').onclick = ()=>{ view.m++; if(view.m>11){view.m=0;view.y++;} renderCalendar(); };
@@ -68,11 +89,6 @@ async function refreshWeather(){
   renderWeather();
   if(view.sheetMode==='weather') renderSheet();
 }
-async function refreshAccount(){
-  await fetchAccount();
-  renderAccount();
-  if(view.sheetMode==='account') renderSheet();
-}
 
 /* ---------- 상시 노출: 시계 틱 + 자정 롤오버 + 번인 방지 ---------- */
 function tick(){
@@ -81,13 +97,12 @@ function tick(){
   if(nowD !== view.curDate){
     view.curDate = nowD;
     const n = new Date(); view.y = n.getFullYear(); view.m = n.getMonth();
-    renderAll(); refreshWeather(); refreshAccount();
+    renderAll(); refreshWeather();      // 생활비는 로컬 장부라 renderAll 로 갱신됨(이번 달 합계 리셋 포함)
   }
 }
 setInterval(tick, 5000);
-refreshWeather();  refreshAccount();    // 로드 즉시 1회
+refreshWeather();                       // 날씨만 로드 즉시 1회
 setInterval(refreshWeather, 1800000);   // 날씨 30분마다
-setInterval(refreshAccount, 1800000);   // 생활비 30분마다
 
 // 심야 모드 깨우기: 어떤 터치든 마지막 터치 시점부터 1분 유지
 document.addEventListener('pointerdown', wakeSleep);

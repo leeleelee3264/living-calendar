@@ -8,7 +8,7 @@ import {
   addDays, nextWeekdayDate, nextBiweekly, nextMonthly, choresFor,
 } from './core.js';
 import { wx24, wxInfo, repWeather } from './weather.js';
-import { accountData, hasAccountUrl, thisMonthTotal, recentTxs } from './livingAccount.js';
+import { accountData, balance, thisMonthTotal, recentTxs, setBase } from './livingAccount.js';
 
 export const $ = s => document.querySelector(s);
 function esc(s){
@@ -68,7 +68,10 @@ export const view = {
   sheetDateStr: null,
   sheetMode: null,
   curDate: ymd(new Date()),
+  // 생활비 입력 폼 상태 (열림 여부 · 지출/입금 · 담당 · 입력 중인 값)
+  acctForm: { open:false, type:'out', amount:'', memo:'' },
 };
+export function resetAcctForm(){ view.acctForm = { open:false, type:'out', amount:'', memo:'' }; }
 
 /* ====================================================================
    렌더링
@@ -248,40 +251,56 @@ export function renderAccount(){
   if(!el) return;
   const head = `<div class="mcHead"><span class="ic">${svgIcon('coins',22)}</span>
     <span class="t">Living expenses</span><span class="more">›</span></div>`;
-  let body;
-  if(!hasAccountUrl()) body = `<div class="mcBal muted">Connect in settings</div>`;
-  else{
-    const a = accountData();
-    body = (a && a.balance!=null)
-      ? `<div class="mcRow">
-          <div><div class="mcLbl">Remaining</div><div class="mcBal">${fmtWon(a.balance)}</div></div>
-          <div class="mcSpent"><div class="mcLbl">This month</div><div class="v">${fmtWon(thisMonthTotal())}</div></div>
-        </div>`
-      : `<div class="mcBal muted">Loading…</div>`;
-  }
+  const body = `<div class="mcRow">
+      <div><div class="mcLbl">Remaining</div><div class="mcBal">${fmtWon(balance())}</div></div>
+      <div class="mcSpent"><div class="mcLbl">This month</div><div class="v">${fmtWon(thisMonthTotal())}</div></div>
+    </div>`;
   el.innerHTML = head + body;
+}
+
+// 입력 폼(열렸을 때) — 금액 · 메모 · 지출/입금 토글 · 담당
+function acctFormHTML(){
+  const f = view.acctForm;
+  if(!f.open) return `<button class="acctAddBtn" data-act="acctOpen">+ Add entry</button>`;
+  const typeSeg = `<span class="seg">`
+    + `<button data-act="acctType" data-v="out" class="${f.type==='out'?'on':''}">Spent</button>`
+    + `<button data-act="acctType" data-v="in" class="${f.type==='in'?'on':''}">Added</button>`
+    + `</span>`;
+  return `<div class="acctForm">
+    <div class="afTop">${typeSeg}</div>
+    <div class="afRow"><span class="afWon">₩</span>
+      <input class="afAmt" inputmode="numeric" placeholder="0" value="${esc(f.amount)}"
+        oninput="acctFormInput('amount', this.value)"></div>
+    <input class="afMemo" type="text" placeholder="Note (e.g. groceries)" value="${esc(f.memo)}"
+      oninput="acctFormInput('memo', this.value)">
+    <div class="afBtns">
+      <button class="afCancel" data-act="acctClose">Close</button>
+      <button class="afAdd" data-act="acctSubmit">Add</button>
+    </div>
+  </div>`;
 }
 
 export function renderAccountSheet(){
   const title = 'Living expenses';
-  if(!hasAccountUrl()){
-    $('#sheet').innerHTML = `<h3>${title}</h3><p class="hint">Add a Google Sheet CSV URL in Settings → Living expenses to see the balance and history.</p>`;
-    return;
-  }
-  const a = accountData();
-  const bal = a && a.balance!=null ? fmtWon(a.balance) : '—';
+  const bal = fmtWon(balance());
   const month = fmtWon(thisMonthTotal());
-  const txs = recentTxs(5);
+  const txs = recentTxs(8);
   const rows = txs.length ? txs.map(t=>{
     const md = String(t.date).slice(5).replace('-','/');   // "07-13" → "07/13"
-    return `<div class="txRow"><span class="txDate">${md}</span>
-      <span class="txMemo">${esc(t.memo||'')}</span>
-      <span class="txAmt">${fmtWon(t.amount)}</span></div>`;
-  }).join('') : `<p class="hint">No transactions yet.</p>`;
+    const isIn = t.type==='in';
+    const memo = t.memo || (isIn ? 'Added' : 'Expense');
+    return `<div class="txRow">
+      <span class="txDate">${md}</span>
+      <span class="txMemo">${esc(memo)}</span>
+      <span class="txAmt ${isIn?'in':''}">${isIn?'+':'−'}${fmtWon(t.amount)}</span>
+      <button class="txDel" data-act="acctDel" data-id="${t.id}" aria-label="Delete">×</button>
+    </div>`;
+  }).join('') : `<p class="hint">No entries yet. Tap “Add entry” to log the first one.</p>`;
 
   $('#sheet').innerHTML = `<h3>${title}</h3>
     <div class="acctBal">${bal}<small>Remaining</small></div>
     <div class="acctSub">This month <b>${month}</b></div>
+    ${acctFormHTML()}
     <div class="hDate">Recent</div>${rows}`;
 }
 
@@ -456,12 +475,10 @@ function renderSettingsBody(){
 
     <div class="secCard">
       <div class="sec">Living expenses</div>
-      <div class="frow" style="flex-direction:column;align-items:stretch;gap:5px;">
-        <label style="min-width:0">${svgIcon('coins',16)}Google Sheet CSV URL</label>
-        <input type="url" data-inp="account.url" value="${esc(S.account.url)}"
-          placeholder="https://docs.google.com/.../pub?output=csv" style="width:100%">
-      </div>
-      <p class="help">Sheet → File → Share → Publish to web → CSV, then paste the URL. Stored on this device only.</p>
+      <div class="frow"><label>${svgIcon('coins',16)}Starting balance</label>
+        <span class="baseIn"><span class="baseWon">₩</span>
+          <input type="text" inputmode="numeric" data-base="1" value="${(accountData().base||0).toLocaleString('en-US')}"></span></div>
+      <p class="help">The board keeps its own record. Log spending from the Living expenses card — no spreadsheet needed. Saved on this device only.</p>
     </div>
 
     <div class="secCard">
@@ -541,7 +558,13 @@ export function initSettings(){
 
   $('#dlg').addEventListener('change', e=>{
     const el = e.target;
-    if(el.dataset && el.dataset.sel){ setPath(S, el.dataset.sel, Number(el.value)); commitSettings(); }
+    if(el.dataset && el.dataset.base){
+      const v = Number(String(el.value).replace(/[^0-9.-]/g,'')) || 0;
+      setBase(v);
+      el.value = v.toLocaleString('en-US');
+      renderAccount();
+    }
+    else if(el.dataset && el.dataset.sel){ setPath(S, el.dataset.sel, Number(el.value)); commitSettings(); }
     else if(el.dataset && el.dataset.inp){
       let v = el.value;
       if(el.dataset.inp.endsWith('.name')) v = v.trim() || '?';
