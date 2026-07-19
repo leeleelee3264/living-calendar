@@ -185,13 +185,17 @@ export function renderCalendar(){
     const ds = ymd(d);
     const wd = d.getDay();
     const items = choresFor(d).filter(c=>!CHORES[c.id].daily);
-    const minis = items.map(c=>{
+    const MAXMINI = 4;                       // 넘치면 마지막을 +N 으로 (셀 높이 넘침 방지)
+    const shown = items.length > MAXMINI ? items.slice(0, MAXMINI-1) : items;
+    let minis = shown.map(c=>{
       const col = c.who==='both' ? S.accent : S.people[c.who].color;
       return `<span class="mini" style="color:${col};background:${col}2e">${CHORES[c.id].short}</span>`;
     }).join('');
+    if(items.length > MAXMINI) minis += `<span class="mini more">+${items.length-(MAXMINI-1)}</span>`;
+    const dense = items.length >= 3 ? ' dense' : '';   // 3개↑ → 한 줄에 2개
     html += `<div class="cell ${ds===todayStr?'today':''}" onclick="openSheet('${ds}')">
       <div class="dn ${wd===0?'sun':wd===6?'sat':''}">${day}</div>
-      <div class="minis">${minis}</div></div>`;
+      <div class="minis${dense}">${minis}</div></div>`;
   }
   $('#calGrid').innerHTML = html;
 
