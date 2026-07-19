@@ -73,8 +73,10 @@ button{font-family:inherit;}
   .right{min-height:0;}
   .choreCard{min-height:0; overflow:hidden;}
   .calCard{flex:1; display:flex; flex-direction:column; min-height:0;}
-  /* 고정 높이라 주(週) 행을 남는 공간에 균등 배분 → 마지막 주가 잘리지 않게 */
-  .cal{flex:1; grid-auto-rows:1fr;}
+  /* 고정 높이라 주(週) 행을 남는 공간에 균등 배분 → 마지막 주가 잘리지 않게.
+     minmax(0,1fr): 6주여도 행이 내용 최소높이에 안 막히고 균등 축소돼 그리드가 안 넘침.
+     선택자를 `.calCard .cal` 로 (기본 `.cal` 의 grid-auto-rows:minmax(64px,1fr) 보다 우선) */
+  .calCard .cal{flex:1; grid-auto-rows:minmax(0,1fr);}
 }
 
 /* Material Symbols 아이콘 (ligature 렌더) */
