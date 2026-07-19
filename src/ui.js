@@ -8,7 +8,8 @@ import {
   addDays, nextWeekdayDate, nextBiweekly, nextMonthly, choresFor,
 } from './core.js';
 import { wx24, wxInfo, repWeather } from './weather.js';
-import { accountData, balance, thisMonthTotal, recentTxs, setBase } from './livingAccount.js';
+import { accountData, balance, thisMonthTotal, recentTxs } from './livingAccount.js';
+import { putSettings } from './supabase.js';
 
 export const $ = s => document.querySelector(s);
 function esc(s){
@@ -56,10 +57,10 @@ export const view = {
   sheetDateStr: null,
   sheetMode: null,
   curDate: ymd(new Date()),
-  // 생활비 입력 폼 상태 (열림 여부 · 지출/입금 · 담당 · 입력 중인 값)
-  acctForm: { open:false, type:'out', amount:'', memo:'' },
+  // 생활비 입력 폼 상태 (열림 여부 · 지출/입금 · 날짜 · 입력 중인 값)
+  acctForm: { open:false, type:'out', amount:'', memo:'', date: ymd(new Date()) },
 };
-export function resetAcctForm(){ view.acctForm = { open:false, type:'out', amount:'', memo:'' }; }
+export function resetAcctForm(){ view.acctForm = { open:false, type:'out', amount:'', memo:'', date: ymd(new Date()) }; }
 
 /* ====================================================================
    렌더링
@@ -70,6 +71,20 @@ export function applyAccent(){
   const r = document.documentElement.style;
   r.setProperty('--ac', S.accent);
   r.setProperty('--acSoft', S.accent + '21');
+}
+
+// 테마 적용: 'light'/'dark' 는 강제, 'auto' 는 시간대 기반(낮 라이트 / 저녁·밤 다크).
+// 심야 검정 오버레이(applySleep)는 이와 별개로 얹힌다 → 저녁=다크, 새벽=검정 (C안).
+const DARK_FROM = 18, LIGHT_FROM = 6;   // auto: 18시부터 다크, 6시부터 라이트
+export function applyTheme(){
+  const el = document.documentElement;
+  const t = S.theme || 'auto';
+  let eff = t;
+  if(t === 'auto'){
+    const h = new Date().getHours();
+    eff = (h >= DARK_FROM || h < LIGHT_FROM) ? 'dark' : 'light';
+  }
+  el.setAttribute('data-theme', eff);
 }
 
 // 오늘 체크리스트 / 바텀시트의 한 줄 — 줄 탭 = 완료, 이름표 탭 = 담당 교체
@@ -143,7 +158,7 @@ export function renderToday(){
       </div>
       <div class="ring">
         <svg width="60" height="60" viewBox="0 0 60 60">
-          <circle cx="30" cy="30" r="25" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
+          <circle cx="30" cy="30" r="25" fill="none" stroke="var(--track)" stroke-width="5"/>
           <circle cx="30" cy="30" r="25" fill="none" stroke="var(--ac)" stroke-width="5"
             stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off}"
             transform="rotate(-90 30 30)"/>
@@ -261,6 +276,8 @@ function acctFormHTML(){
         oninput="acctFormInput('amount', this.value)"></div>
     <input class="afMemo" type="text" placeholder="Note (e.g. groceries)" value="${esc(f.memo)}"
       oninput="acctFormInput('memo', this.value)">
+    <label class="afDate"><span>Date</span>
+      <input type="date" value="${esc(f.date)}" oninput="acctFormInput('date', this.value)"></label>
     <div class="afBtns">
       <button class="afCancel" data-act="acctClose">Close</button>
       <button class="afAdd" data-act="acctSubmit">Add</button>
@@ -303,7 +320,7 @@ export function renderSheet(){
 }
 
 export function renderAll(){
-  applyAccent(); applySleep(); applyShift(); renderClock();
+  applyAccent(); applyTheme(); applySleep(); applyShift(); renderClock();
   renderToday(); renderWeather(); renderAccount(); renderCalendar(); renderSheet();
 }
 
@@ -393,14 +410,6 @@ function renderSettingsBody(){
     <p class="subNote">Changes apply instantly · tap a name to change who does it</p>
 
     <div class="secCard">
-      <div class="sec">People</div>
-      <div class="frow"><input type="text" data-inp="people.A.name" value="${esc(S.people.A.name)}">
-        <input type="color" data-inp="people.A.color" value="${S.people.A.color}"></div>
-      <div class="frow"><input type="text" data-inp="people.B.name" value="${esc(S.people.B.name)}">
-        <input type="color" data-inp="people.B.color" value="${S.people.B.color}"></div>
-    </div>
-
-    <div class="secCard">
       <div class="sec">Daily</div>
       <div class="frow"><label>${svgIcon('trash',16)}${CHORES.trashBathroom.name}</label>
         ${pBtn(S.daily.trashBathroom, `data-act="flip" data-path="daily.trashBathroom"`)}</div>
@@ -462,15 +471,10 @@ function renderSettingsBody(){
     </div>
 
     <div class="secCard">
-      <div class="sec">Living expenses</div>
-      <div class="frow"><label>${svgIcon('coins',16)}Starting balance</label>
-        <span class="baseIn"><span class="baseWon">₩</span>
-          <input type="text" inputmode="numeric" data-base="1" value="${(accountData().base||0).toLocaleString('en-US')}"></span></div>
-      <p class="help">The board keeps its own record. Log spending from the Living expenses card — no spreadsheet needed. Saved on this device only.</p>
-    </div>
-
-    <div class="secCard">
       <div class="sec">Display</div>
+      <div class="frow"><label>${svgIcon('sun',16)}Theme</label>
+        ${segBtns('theme', [{v:'auto',label:'Auto'},{v:'light',label:'Light'},{v:'dark',label:'Dark'}], S.theme)}</div>
+      <p class="help">Auto follows the time of day — light by day, dark from 6 PM.</p>
       <div class="frow"><label>${svgIcon('expand',16)}Fullscreen</label>
         <button class="fullBtn" data-act="full">${isFull?'Off':'On'}</button></div>
       <div class="frow"><label>Accent</label>
@@ -489,7 +493,13 @@ function renderSettingsBody(){
   </div>`;
 }
 
-function commitSettings(){ saveSettings(); renderAll(); renderSettingsBody(); }
+// 설정을 클라우드(settings 싱글톤)에 밀어넣는다. base 는 account.base 로 함께 실어 보낸다.
+function pushSettingsCloud(){
+  const data = JSON.parse(JSON.stringify(S));
+  data.account = { base: accountData().base || 0 };
+  putSettings(data).catch(()=>{});   // 실패해도 로컬은 유지
+}
+function commitSettings(){ saveSettings(); pushSettingsCloud(); renderAll(); renderSettingsBody(); }
 function openSettings(){ renderSettingsBody(); $('#dlg').showModal(); }
 
 // 설정 버튼 + 다이얼로그 이벤트 배선 (main 에서 1회 호출)
@@ -546,18 +556,6 @@ export function initSettings(){
 
   $('#dlg').addEventListener('change', e=>{
     const el = e.target;
-    if(el.dataset && el.dataset.base){
-      const v = Number(String(el.value).replace(/[^0-9.-]/g,'')) || 0;
-      setBase(v);
-      el.value = v.toLocaleString('en-US');
-      renderAccount();
-    }
-    else if(el.dataset && el.dataset.sel){ setPath(S, el.dataset.sel, Number(el.value)); commitSettings(); }
-    else if(el.dataset && el.dataset.inp){
-      let v = el.value;
-      if(el.dataset.inp.endsWith('.name')) v = v.trim() || '?';
-      setPath(S, el.dataset.inp, v);
-      commitSettings();
-    }
+    if(el.dataset && el.dataset.sel){ setPath(S, el.dataset.sel, Number(el.value)); commitSettings(); }
   });
 }

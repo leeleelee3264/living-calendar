@@ -4,7 +4,8 @@
 
 export const DEFAULTS = {
   accent:'#7ec8a3',
-  sleep:{on:true, start:0, end:6},
+  theme:'auto',                       // 'auto'(시간대 기반: 낮 라이트 / 저녁·밤 다크) | 'light' | 'dark'
+  sleep:{on:true, start:23, end:6},   // 심야 검정 오버레이(번인방지): 23시~6시
   anchor:'2026-07-01',
   people:{A:{name:'Person A', color:'#6d8dff'}, B:{name:'Person B', color:'#ff85a5'}},
   daily:{trashBathroom:'B', trashRecycle:'A', vacuum:'A', makeBed:'both'},
@@ -41,9 +42,23 @@ export function resetSettings(){
   return S;
 }
 
+// 클라우드(Supabase) 설정을 소스 오브 트루스로 반영: DEFAULTS 위에 원격 값을 얹고 로컬 캐시 갱신.
+// 이름(people)·스케줄·테마·포인트색이 여기서 들어온다. (base 는 livingAccount 가 별도 처리)
+export function applyRemoteSettings(data){
+  if(!data || typeof data !== 'object') return;
+  S = deepMerge(JSON.parse(JSON.stringify(DEFAULTS)), data);
+  saveSettings();
+}
+
 export let DONE = {};
 try{ DONE = JSON.parse(localStorage.getItem('chores-done-v1') || '{}'); }catch(e){}
 export function persistDone(){ localStorage.setItem('chores-done-v1', JSON.stringify(DONE)); }
+// 클라우드 체크를 반영: 'date|chore_id' 맵으로 재구성하고 로컬 캐시 갱신.
+export function applyRemoteChecks(rows){
+  DONE = {};
+  for(const r of (rows || [])) DONE[r.date + '|' + r.chore_id] = 1;
+  persistDone();
+}
 
 export let OVR = {};
 try{ OVR = JSON.parse(localStorage.getItem('chores-ovr-v1') || '{}'); }catch(e){}

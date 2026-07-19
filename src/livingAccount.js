@@ -74,3 +74,15 @@ export function deleteTx(id){
 
 // 시작 잔액 설정 (설정 다이얼로그에서 호출)
 export function setBase(n){ ACCOUNT.base = Number(n) || 0; persist(); }
+
+// 클라우드(Supabase txs)에서 받은 거래로 로컬 장부를 교체 — 정규화 후 캐시.
+export function setTxs(rows){
+  ACCOUNT.txs = Array.isArray(rows) ? rows.map(t => ({
+    id: String(t.id),
+    date: String(t.date),
+    amount: Math.abs(Number(t.amount)) || 0,
+    type: t.type === 'in' ? 'in' : 'out',
+    memo: String(t.memo || ''),
+  })) : [];
+  persist();
+}
