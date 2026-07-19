@@ -8,7 +8,7 @@ import {
   addDays, nextWeekdayDate, nextBiweekly, nextMonthly, choresFor,
 } from './core.js';
 import { wx24, wxInfo, repWeather } from './weather.js';
-import { accountData, balance, thisMonthTotal, recentTxs } from './livingAccount.js';
+import { accountData, balance, thisMonthTotal, monthTxs, earlierTxs } from './livingAccount.js';
 import { putSettings } from './supabase.js';
 
 export const $ = s => document.querySelector(s);
@@ -289,28 +289,33 @@ function acctFormHTML(){
   </div>`;
 }
 
+function txRowHTML(t){
+  const md = String(t.date).slice(5).replace('-','/');   // "07-13" → "07/13"
+  const isIn = t.type==='in';
+  const memo = t.memo || (isIn ? 'Added' : 'Expense');
+  return `<div class="txRow">
+    <span class="txDate">${md}</span>
+    <span class="txMemo">${esc(memo)}</span>
+    <span class="txAmt ${isIn?'in':''}">${isIn?'+':'−'}${fmtWon(t.amount)}</span>
+    <button class="txDel" data-act="acctDel" data-id="${t.id}" aria-label="Delete">×</button>
+  </div>`;
+}
+
 export function renderAccountSheet(){
   const title = 'Living expenses';
   const bal = fmtWon(balance());
   const month = fmtWon(thisMonthTotal());
-  const txs = recentTxs(8);
-  const rows = txs.length ? txs.map(t=>{
-    const md = String(t.date).slice(5).replace('-','/');   // "07-13" → "07/13"
-    const isIn = t.type==='in';
-    const memo = t.memo || (isIn ? 'Added' : 'Expense');
-    return `<div class="txRow">
-      <span class="txDate">${md}</span>
-      <span class="txMemo">${esc(memo)}</span>
-      <span class="txAmt ${isIn?'in':''}">${isIn?'+':'−'}${fmtWon(t.amount)}</span>
-      <button class="txDel" data-act="acctDel" data-id="${t.id}" aria-label="Delete">×</button>
-    </div>`;
-  }).join('') : `<p class="hint">No entries yet. Tap “Add entry” to log the first one.</p>`;
+  const mtx = monthTxs(), etx = earlierTxs();   // 이번 달 전부 + 이전 달
+  const monthRows = mtx.length
+    ? mtx.map(txRowHTML).join('')
+    : `<p class="hint">No entries this month yet. Tap “Add entry” to log one.</p>`;
+  const earlierBlock = etx.length ? `<div class="hDate">Earlier</div>${etx.map(txRowHTML).join('')}` : '';
 
   $('#sheet').innerHTML = `<h3>${title}</h3>
     <div class="acctBal">${bal}<small>Remaining</small></div>
-    <div class="acctSub">This month <b>${month}</b></div>
+    <div class="acctSub">This month <b>${month}</b> · ${mtx.length} ${mtx.length===1?'entry':'entries'}</div>
     ${acctFormHTML()}
-    <div class="hDate">Recent</div>${rows}`;
+    <div class="hDate">This month</div>${monthRows}${earlierBlock}`;
 }
 
 // 바텀시트: 날씨 / 생활비 / 날짜별 집안일 목록

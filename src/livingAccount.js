@@ -43,6 +43,21 @@ export function thisMonthTotal(){
 // 최근 n건 (뒤에 추가된 게 최신 → 뒤에서 n개, 최신순)
 export function recentTxs(n = 8){ return ACCOUNT.txs.slice(-n).reverse(); }
 
+function monthPrefix(){
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}`;
+}
+// 이번 달 거래 전부 (최신순) — 상세 시트에서 이번 달 지출을 모두 보여주기 위함
+export function monthTxs(){
+  const pre = monthPrefix();
+  return ACCOUNT.txs.filter(t => String(t.date).startsWith(pre)).reverse();
+}
+// 이번 달 이전 거래 전부 (최신순)
+export function earlierTxs(){
+  const pre = monthPrefix();
+  return ACCOUNT.txs.filter(t => !String(t.date).startsWith(pre)).reverse();
+}
+
 function ymdToday(){
   const d = new Date();
   return d.getFullYear() + '-'
