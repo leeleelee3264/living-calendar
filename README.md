@@ -9,7 +9,7 @@ Two people share a home and split recurring chores; this board shows what needs 
 - **Single HTML file** — no server, no dependencies, no build. Open `index.html` and it works.
 - **Today's checklist** with a progress bar, plus a weekly strip and a D-day card for upcoming chores.
 - **Automatic rotation** — fixed and alternating owners are computed from a start date, so the board keeps itself current. Rotation is shown as a real date + name (e.g. "Next: Sat → Person A"), never as internal jargon.
-- **Dark dashboard UI** — always-dark design (Manrope + Space Grotesk, line icons) with a selectable accent color; Korean UI.
+- **Dark dashboard UI** — always-dark design (Manrope + Space Grotesk, [Material Symbols Rounded](https://fonts.google.com/icons) icons) with a selectable accent color; Korean UI.
 - **Always-on friendly** (for wall-mounted tablets):
   - Automatic rollover at midnight.
   - Night screen-off window (blacked out with a floating clock) to reduce OLED burn-in.
