@@ -23,6 +23,11 @@ export function wx24(){
   return WX.hours.slice(i, i+24);
 }
 
+// 오늘부터 7일 일별 예보 [{date, code, tmax, tmin, pop}]
+export function wxWeek(){
+  return (WX && Array.isArray(WX.days) && WX.days.length) ? WX.days : null;
+}
+
 // WMO weather code → {emoji, ko, en, precip}
 export function wxInfo(c){
   const P = true, N = false;
@@ -58,8 +63,9 @@ export function repWeather(win){
 export async function fetchWeather(){
   try{
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${WX_LAT}&longitude=${WX_LON}`
-      + `&timezone=Asia%2FSeoul&forecast_days=2`
-      + `&hourly=weather_code,temperature_2m,precipitation_probability,relative_humidity_2m`;
+      + `&timezone=Asia%2FSeoul&forecast_days=7`
+      + `&hourly=weather_code,temperature_2m,precipitation_probability,relative_humidity_2m`
+      + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max`;
     const r = await fetch(url);
     if(!r.ok) throw new Error('http '+r.status);
     const j = await r.json();
@@ -72,7 +78,15 @@ export async function fetchWeather(){
       pop: j.hourly.precipitation_probability ? j.hourly.precipitation_probability[i] : null,
       humidity: j.hourly.relative_humidity_2m ? j.hourly.relative_humidity_2m[i] : null,
     }));
-    WX = { fetchedAt: nowStamp(), hours };
+    const d = j.daily || {};
+    const days = (d.time || []).map((tm,i)=>({
+      date: tm,                 // "2026-07-21"
+      code: d.weather_code ? d.weather_code[i] : 0,
+      tmax: Math.round(d.temperature_2m_max[i]),
+      tmin: Math.round(d.temperature_2m_min[i]),
+      pop: d.precipitation_probability_max ? d.precipitation_probability_max[i] : null,
+    }));
+    WX = { fetchedAt: nowStamp(), hours, days };
     localStorage.setItem('chores-weather-v2', JSON.stringify(WX));
   }catch(e){ /* keep last cached WX */ }
   return WX;

@@ -214,21 +214,35 @@ button{font-family:inherit;}
 #sheetWrap.open #sheet{transform:translateY(0);}
 #sheet h3{margin:0 0 6px; font-size:18px; font-weight:700;}
 
-/* 시간별 날씨 시트 */
-.hourly{display:flex; flex-direction:column;}
+/* 섹션 헤더 (날씨 주간 · 생활비 이번달/이전 공용) */
 .hDate{font-size:12px; font-weight:700; color:var(--ac); letter-spacing:.5px;
-  margin:12px 2px 2px; padding-top:10px; border-top:1px solid var(--line);}
+  margin:16px 2px 4px; padding-top:12px; border-top:1px solid var(--line);}
 .hDate:first-child{margin-top:2px; padding-top:0; border-top:none;}
-.hRow{display:flex; align-items:center; gap:10px; padding:9px 6px;
-  border-top:1px solid var(--line05);}
-.hRow.now{background:var(--acSoft); border-radius:9px; border-top-color:transparent;}
-.hRow .hH{width:3.4em; font-family:var(--num); font-weight:600; font-size:14px; flex:none;}
-.hRow .hIco{display:flex; width:1.6em; justify-content:center; flex:none;}
-.hRow .hDesc{flex:1; font-size:13.5px; color:var(--sub); overflow:hidden;
-  text-overflow:ellipsis; white-space:nowrap;}
-.hRow .hPop{display:flex; align-items:center; gap:3px; font-size:12.5px; color:#7ea6d6; flex:none;}
-.hRow .hHum{display:flex; align-items:center; gap:3px; font-size:12.5px; color:var(--dim); flex:none;}
-.hRow .hT{font-family:var(--num); font-weight:600; font-size:15px; min-width:2.6em; text-align:right; flex:none;}
+
+/* 날씨 · 시간별 가로 스크롤 스트립 */
+.hStrip{display:flex; gap:4px; overflow-x:auto; padding:6px 0 8px; margin:2px 0;
+  scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;}
+.hCell{flex:0 0 auto; width:54px; display:flex; flex-direction:column; align-items:center; gap:6px;
+  padding:10px 2px; border-radius:14px; scroll-snap-align:start;}
+.hCell.now{background:var(--acSoft);}
+.hCell .hcH{font-family:var(--num); font-size:13px; font-weight:600; color:var(--sub);}
+.hCell.now .hcH{color:var(--ac);}
+.hCell .hcIco{display:flex; height:24px; align-items:center;}
+.hCell .hcPop{font-size:11px; font-weight:600; color:#7ea6d6; min-height:13px; line-height:1;}
+.hCell .hcT{font-family:var(--num); font-size:15px; font-weight:700; color:var(--ink);}
+
+/* 날씨 · 주간 예보 리스트 */
+.wkList{display:flex; flex-direction:column;}
+.wkRow{display:flex; align-items:center; gap:9px; padding:11px 4px; border-top:1px solid var(--line05);}
+.wkRow:first-child{border-top:none;}
+.wkDay{width:2.9em; font-size:15px; font-weight:600; color:var(--ink); flex:none;}
+.wkIco{display:flex; width:1.8em; justify-content:center; flex:none;}
+.wkPop{width:2.7em; font-size:11.5px; font-weight:600; color:#7ea6d6; flex:none;}
+.wkLo{width:2.3em; text-align:right; font-family:var(--num); font-weight:600; font-size:14.5px; color:var(--sub); flex:none;}
+.wkBar{flex:1; height:5px; min-width:44px; border-radius:3px; background:var(--track); position:relative;}
+.wkFill{position:absolute; top:0; height:100%; border-radius:3px;
+  background:linear-gradient(90deg, #6ea8ff, #7ec87a, #e6a95c);}
+.wkHi{width:2.3em; text-align:right; font-family:var(--num); font-weight:700; font-size:14.5px; color:var(--ink); flex:none;}
 
 /* 생활비 시트 */
 .acctBal{font-family:var(--num); font-size:32px; font-weight:700; color:var(--ac);

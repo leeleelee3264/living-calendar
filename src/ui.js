@@ -7,7 +7,7 @@ import {
   pick, weekIndex, monthIndex, mod, otherOf,
   addDays, nextWeekdayDate, nextBiweekly, nextMonthly, choresFor,
 } from './core.js';
-import { wx24, wxInfo, repWeather } from './weather.js';
+import { wx24, wxWeek, wxInfo, repWeather } from './weather.js';
 import { accountData, balance, thisMonthTotal, monthTxs, earlierTxs } from './livingAccount.js';
 import { putSettings } from './supabase.js';
 
@@ -225,29 +225,53 @@ export function renderWeather(){
     + hum
     + `<span class="wxMore">›</span>`;
 }
-function wxDateLabel(ds){
-  const d = parseYMD(ds);
-  return `${WD_FULL[d.getDay()]}, ${MON_SHORT[d.getMonth()]} ${d.getDate()}`;
-}
 export function renderWeatherSheet(){
-  const title = 'Next 24 hours · Seoul';
+  const title = 'Seoul';
   const win = wx24();
   if(!win){ $('#sheet').innerHTML = `<h3>${title}</h3><p class="hint">Couldn't load weather.</p>`; return; }
   const nowStr = ymd(new Date()), nowH = new Date().getHours();
-  let lastDate = null, rows = '';
-  for(const x of win){
-    if(x.date !== lastDate){ lastDate = x.date; rows += `<div class="hDate">${wxDateLabel(x.date)}</div>`; }
-    const w = wxInfo(x.code);
+
+  // ① 시간별 — 가로 스크롤 스트립 (지금 → 앞으로 24시간)
+  const cells = win.map((x,i)=>{
     const ic = wxIconFor(x.code);
-    const pop = (x.pop!=null && x.pop>0) ? `<span class="hPop">${svgIcon('umbrella',12,2)}${x.pop}%</span>` : '';
-    const hum = (x.humidity!=null) ? `<span class="hHum">${svgIcon('drop',12,2)}${x.humidity}%</span>` : '';
-    const now = (x.date===nowStr && x.h===nowH) ? 'now' : '';
-    rows += `<div class="hRow ${now}">
-      <span class="hH">${String(x.h).padStart(2,'0')}:00</span>
-      <span class="hIco" style="color:${ic.color}">${svgIcon(ic.name,18,1.8)}</span>
-      <span class="hDesc">${w.en}</span>${pop}${hum}<span class="hT">${x.temp}°</span></div>`;
+    const isNow = (x.date===nowStr && x.h===nowH);
+    const label = i===0 ? 'Now' : String(x.h).padStart(2,'0');
+    const pop = (x.pop!=null && x.pop>0) ? `${x.pop}%` : '';
+    return `<div class="hCell ${isNow?'now':''}">
+      <span class="hcH">${label}</span>
+      <span class="hcIco" style="color:${ic.color}">${svgIcon(ic.name,22,1.7)}</span>
+      <span class="hcPop">${pop}</span>
+      <span class="hcT">${x.temp}°</span></div>`;
+  }).join('');
+
+  // ② 주간 — 요일 · 아이콘 · 강수% · 최저—막대—최고
+  const week = wxWeek();
+  let weekHTML = '';
+  if(week && week.length){
+    const lo = Math.min(...week.map(d=>d.tmin));
+    const hi = Math.max(...week.map(d=>d.tmax));
+    const span = Math.max(1, hi-lo);
+    weekHTML = week.map((d,i)=>{
+      const ic = wxIconFor(d.code);
+      const name = i===0 ? 'Today' : WD[parseYMD(d.date).getDay()];
+      const pop = (d.pop!=null && d.pop>0) ? `${d.pop}%` : '';
+      const left = ((d.tmin-lo)/span*100).toFixed(1);
+      const width = Math.max(6, (d.tmax-d.tmin)/span*100).toFixed(1);
+      return `<div class="wkRow">
+        <span class="wkDay">${name}</span>
+        <span class="wkIco" style="color:${ic.color}">${svgIcon(ic.name,20,1.7)}</span>
+        <span class="wkPop">${pop}</span>
+        <span class="wkLo">${d.tmin}°</span>
+        <span class="wkBar"><span class="wkFill" style="left:${left}%;width:${width}%"></span></span>
+        <span class="wkHi">${d.tmax}°</span></div>`;
+    }).join('');
   }
-  $('#sheet').innerHTML = `<h3>${title}</h3><div class="hourly">${rows}</div>`;
+  const weekBlock = weekHTML
+    ? `<div class="hDate">7-day forecast</div><div class="wkList">${weekHTML}</div>` : '';
+
+  $('#sheet').innerHTML = `<h3>${title}</h3>
+    <div class="hStrip">${cells}</div>
+    ${weekBlock}`;
 }
 
 /* ---------- 생활비 카드 / 상세 시트 ---------- */
