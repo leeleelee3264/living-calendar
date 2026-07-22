@@ -1,11 +1,11 @@
 // 앱 진입점 · 컨트롤러: 상호작용 정의, 이벤트 배선, 상시 노출용 타이머.
 import { DONE, OVR, persistDone, persistOvr, applyRemoteSettings, applyRemoteChecks } from './storage.js';
-import { ymd, parseYMD, choresFor } from './core.js';
+import { ymd, parseYMD, choresFor, allDone, streakBack } from './core.js';
 import { fetchWeather } from './weather.js';
 import { addTx, deleteTx, setTxs, setBase } from './livingAccount.js';
 import * as sb from './supabase.js';
 import {
-  $, view, initSettings, resetAcctForm,
+  $, view, initSettings, resetAcctForm, cheer,
   renderAll, renderCalendar, renderClock,
   applySleep, applyShift, applyTheme, renderWeather, renderAccount, renderSheet, wakeSleep,
 } from './ui.js';
@@ -17,6 +17,9 @@ function toggleDone(ds, id){
   if(nowOn) DONE[k] = 1; else delete DONE[k];
   persistDone();
   renderAll();
+  // 마지막 하나를 체크해 그날이 100% 가 된 순간에만 축하 (해제·동기화 재렌더로는 안 뜸)
+  const d = parseYMD(ds);
+  if(nowOn && allDone(d)) cheer(streakBack(d));
   // 낙관적 클라우드 반영 (실패해도 로컬은 유지)
   (nowOn ? sb.putCheck(ds, id) : sb.delCheck(ds, id)).catch(()=>{});
 }

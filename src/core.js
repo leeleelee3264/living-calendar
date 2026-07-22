@@ -1,7 +1,7 @@
 // 도메인 로직: 날짜 계산·포맷 + 스케줄 엔진.
 // 로테이션은 S.anchor 가 포함된 주를 기준으로 센다.
 import { DAY, WD, WD_FULL, MON_SHORT } from './data.js';
-import { S, OVR } from './storage.js';
+import { S, OVR, DONE } from './storage.js';
 
 /* ---------- 날짜 ---------- */
 export function ymd(d){
@@ -101,4 +101,29 @@ export function choresFor(d){
     if(o && c.who !== 'both') c.who = o;
   }
   return list;
+}
+
+/* ---------- "다 했다" 판정 + 연속 완료(스트릭) ----------
+   체크(DONE)는 Supabase `checks` 가 소스라 두 사람이 뭘 했든 같은 결과가 나온다. */
+
+// 그날 해야 할 집안일을 하나도 안 남기고 다 체크했는가
+export function allDone(d){
+  const ds = ymd(d);
+  const list = choresFor(d);
+  return list.length > 0 && list.every(c => DONE[ds+'|'+c.id]);
+}
+
+// d 부터 하루씩 거슬러 올라가며 "다 한 날"이 며칠 연속인지. 빠진 날을 만나면 멈춘다.
+export function streakBack(d, cap=400){
+  let x = d, n = 0;
+  while(n < cap && allDone(x)){ n++; x = addDays(x, -1); }
+  return n;
+}
+
+// 오늘 기준 연속 일수. 오늘이 아직 진행 중이면 어제까지로 세서,
+// 하루 중에 스트릭이 0으로 떨어져 보이지 않게 한다.
+export function currentStreak(){
+  const n = new Date();
+  const today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  return allDone(today) ? streakBack(today) : streakBack(addDays(today, -1));
 }

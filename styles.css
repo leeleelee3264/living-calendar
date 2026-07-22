@@ -2,7 +2,7 @@
    :root(다크 기본)에 두고, prefers-color-scheme 또는 data-theme=light 로 오버라이드.
    포인트색 var(--ac) 는 JS(applyAccent)가 설정값으로 갱신. 테마는 applyTheme 가 data-theme 로 적용. */
 :root{
-  --ac:#7ec8a3; --acSoft:rgba(126,200,163,.13);
+  --ac:#7ec8a3; --acSoft:rgba(126,200,163,.13); --acFaint:rgba(126,200,163,.07);
   --bg:#0c0d10; --card:#15171b; --cellOut:#121317; --field:#0f1114;
   --ink:#eceef1; --sub:#98a0aa; --dim:#6b727b; --faint:#565c65;
   --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.09);
@@ -121,6 +121,8 @@ button{font-family:inherit;}
 .cardHead{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:6px;}
 .cardHead h2{font-size:20px; font-weight:700; letter-spacing:-.2px; margin:0;}
 .cardHead .subline{font-size:13px; color:var(--dim); font-weight:600; margin-top:4px;}
+.cardHead .subline b{color:var(--ac); font-weight:700;}   /* 연속 완료(스트릭) 강조 */
+.ring.full .rTxt{color:var(--ac);}
 .ring{position:relative; width:60px; height:60px; flex:none;}
 .ring svg{display:block;}
 .ring .rTxt{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
@@ -161,10 +163,18 @@ button{font-family:inherit;}
 .cal{display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:minmax(64px,1fr); gap:1px;
   background:var(--line07); border:1px solid var(--line07);
   border-radius:12px; overflow:hidden; min-height:0;}
-.cell{display:flex; flex-direction:column; padding:8px 9px; background:var(--card);
+.cell{position:relative; display:flex; flex-direction:column; padding:8px 9px; background:var(--card);
   cursor:pointer; min-height:0; overflow:hidden;}
 .cell.empty{background:var(--cellOut); cursor:default;}
 .cell.today{background:var(--acSoft); box-shadow:inset 0 0 0 1px var(--ac);}
+/* "다 했다" 축하 — 그날 집안일을 전부 체크한 날. 옅은 포인트색 + 우상단 체크 배지.
+   배지는 absolute 라 셀 높이에 영향 없음(6주짜리 달에서 마지막 주 안 밀림) */
+.cell.perfect{background:var(--acFaint);}
+.cell.today.perfect{background:var(--acSoft);}
+.wow{position:absolute; top:6px; right:6px; width:15px; height:15px; border-radius:50%;
+  background:var(--ac); color:var(--onAcc); flex:none;
+  display:flex; align-items:center; justify-content:center;}
+.wow.lg{position:static; width:14px; height:14px;}   /* 범례용 */
 .dn{font-family:var(--num); font-size:14px; font-weight:600; color:var(--dnInk); line-height:1;}
 .dn.sun{color:var(--sun);} .dn.sat{color:var(--sat);}
 .cell.today .dn{color:var(--ac); font-weight:700;}
@@ -195,6 +205,20 @@ button{font-family:inherit;}
 .mcSpent .mcLbl{font-size:12.5px; color:var(--dim);}
 .mcSpent .v{font-family:var(--num); font-size:22px; font-weight:600; color:var(--numTxt); line-height:1;}
 
+/* "다 했다" 축하 배너 — 마지막 항목을 체크한 순간 아래에서 올라와 3.6초 뒤 사라짐.
+   z-index 는 시트(50) 위, 심야 오버레이(90) 아래 — 밤엔 검은 화면이 이긴다 */
+.cheer{position:fixed; left:50%; bottom:34px; z-index:80;
+  transform:translate(-50%, 26px); opacity:0; pointer-events:none;
+  display:flex; align-items:center; gap:13px; padding:13px 22px 13px 17px;
+  background:var(--card); border:1px solid var(--ac); border-radius:18px;
+  box-shadow:0 14px 38px rgba(0,0,0,.3);
+  transition:opacity .3s ease, transform .3s cubic-bezier(.2,.9,.3,1.2);}
+.cheer.on{opacity:1; transform:translate(-50%, 0);}
+.cheer .cheerIco{color:var(--ac); display:flex; flex:none;}
+.cheer .cheerTxt{display:flex; flex-direction:column; line-height:1.25;}
+.cheer .cheerTxt b{font-size:15.5px; font-weight:700; color:var(--ink);}
+.cheer .cheerTxt small{font-size:12.5px; font-weight:600; color:var(--sub); margin-top:3px;}
+
 /* 심야 화면 끄기: 검은 오버레이 + 은은하게 떠다니는 시계 (번인 방지) — 테마 무관 항상 검정 */
 #sleep{position:fixed; inset:0; background:#000; z-index:90; display:none;
   align-items:center; justify-content:center; cursor:pointer;}
@@ -213,6 +237,10 @@ button{font-family:inherit;}
   max-height:78vh; overflow-y:auto;}
 #sheetWrap.open #sheet{transform:translateY(0);}
 #sheet h3{margin:0 0 6px; font-size:18px; font-weight:700;}
+/* 날짜 시트 제목 옆 "다 했다" 태그 */
+.allDoneTag{display:inline-flex; align-items:center; gap:5px; margin-left:9px;
+  padding:3px 9px 3px 7px; border-radius:999px; vertical-align:middle;
+  background:var(--acSoft); color:var(--ac); font-size:11.5px; font-weight:700; letter-spacing:.2px;}
 
 /* 섹션 헤더 (날씨 주간 · 생활비 이번달/이전 공용) */
 .hDate{font-size:12px; font-weight:700; color:var(--ac); letter-spacing:.5px;
