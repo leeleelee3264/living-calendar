@@ -2,7 +2,7 @@
    :root(다크 기본)에 두고, prefers-color-scheme 또는 data-theme=light 로 오버라이드.
    포인트색 var(--ac) 는 JS(applyAccent)가 설정값으로 갱신. 테마는 applyTheme 가 data-theme 로 적용. */
 :root{
-  --ac:#7ec8a3; --acSoft:rgba(126,200,163,.13); --acFaint:rgba(126,200,163,.11);
+  --ac:#7ec8a3; --acSoft:rgba(126,200,163,.13);
   --bg:#0c0d10; --card:#15171b; --cellOut:#121317; --field:#0f1114;
   --ink:#eceef1; --sub:#98a0aa; --dim:#6b727b; --faint:#565c65;
   --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.09);
@@ -168,20 +168,13 @@ button{font-family:inherit;}
   cursor:pointer; min-height:0; overflow:hidden;}
 .cell.empty{background:var(--cellOut); cursor:default;}
 .cell.today{background:var(--acSoft); box-shadow:inset 0 0 0 1px var(--ac);}
-/* "다 했다" 축하 — 그날 집안일을 전부 체크한 날.
-   ① 셀 배경에 큰 🎉 워터마크(빈 칸 채우기) ② 우상단에 또렷한 🎉(멀리서 스캔용) ③ 포인트색 틴트.
-   둘 다 absolute + pointer-events:none 이라 셀 높이·탭 영역에 영향 없음
-   (6주짜리 달에서 마지막 주 안 밀림) */
-.cell.perfect{background:var(--acFaint);}
-.cell.today.perfect{background:var(--acSoft);}
-.cell.perfect .dn, .cell.perfect .minis{position:relative; z-index:1;}   /* 워터마크 위로 */
-.wowBg{position:absolute; left:50%; top:54%; transform:translate(-50%,-50%);
-  font-size:34px; line-height:1; opacity:.22; pointer-events:none; user-select:none; z-index:0;}
+/* "다 했다" 축하 — 그날 집안일을 전부 체크한 날, 우상단에 🎉 배지.
+   배경 틴트/워터마크는 다크에서 셀이 칙칙해져서 뺐다. absolute + pointer-events:none
+   이라 셀 높이·탭 영역에 영향 없음(6주짜리 달에서 마지막 주 안 밀림) */
 .wow{position:absolute; top:4px; right:5px; font-size:17px; line-height:1;
   pointer-events:none; user-select:none; z-index:1;
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));}
 .wow.lg{position:static; font-size:14px; filter:none;}   /* 범례용 */
-.wowBg.quiet{opacity:.12;}   /* 라벨 많은 날(3개↑)은 더 죽여 라벨 가독성 유지 */
 .dn{font-family:var(--num); font-size:14px; font-weight:600; color:var(--dnInk); line-height:1;}
 .dn.sun{color:var(--sun);} .dn.sat{color:var(--sat);}
 .cell.today .dn{color:var(--ac); font-weight:700;}

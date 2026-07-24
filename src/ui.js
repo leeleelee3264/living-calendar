@@ -74,7 +74,6 @@ export function applyAccent(){
   const r = document.documentElement.style;
   r.setProperty('--ac', S.accent);
   r.setProperty('--acSoft', S.accent + '21');
-  r.setProperty('--acFaint', S.accent + '1c');   // 달력 "다 했다" 셀 틴트 (오늘 셀보다 옅게)
 }
 
 // 테마 적용: 'light'/'dark' 는 강제, 'auto' 는 시간대 기반(낮 라이트 / 저녁·밤 다크).
@@ -201,14 +200,12 @@ export function renderCalendar(){
     }).join('');
     if(items.length > MAXMINI) minis += `<span class="mini more">+${items.length-(MAXMINI-1)}</span>`;
     const dense = items.length >= 3 ? ' dense' : '';   // 3개↑ → 한 줄에 2개
-    // 그날 집안일을 전부 끝낸 날 = 축하 표시. 🎉 둘 다 absolute 라 셀 높이에 영향 없음
-    // (6주짜리 달에서도 마지막 주가 안 밀린다) — 큰 건 배경 워터마크로 빈 칸을 채우고,
-    // 작은 건 우상단에 또렷하게 찍어 멀리서도 "다 한 날"이 스캔되게
+    // 그날 집안일을 전부 끝낸 날 = 우상단에 🎉 배지만. absolute 라 셀 높이에 영향 없음
+    // (6주짜리 달에서도 마지막 주가 안 밀린다). 배경 틴트/워터마크는 다크에서 셀이
+    // 칙칙해져서 뺐다 — 배지 하나로도 "다 한 날"이 충분히 스캔됨
     const perfect = allDone(d);
     const cls = [ds===todayStr ? 'today' : '', perfect ? 'perfect' : ''].join(' ').trim();
-    const party = perfect
-      ? `<span class="wowBg${dense?' quiet':''}" aria-hidden="true">${PARTY}</span><span class="wow" aria-label="All done">${PARTY}</span>`
-      : '';
+    const party = perfect ? `<span class="wow" aria-label="All done">${PARTY}</span>` : '';
     html += `<div class="cell ${cls}" onclick="openSheet('${ds}')">
       ${party}
       <div class="dn ${wd===0?'sun':wd===6?'sat':''}">${day}</div>
