@@ -38,9 +38,8 @@ export function svgIcon(name, size=20, sw=1.7){
   return `<span class="msym" style="font-size:${size}px">${lig}</span>`;
 }
 const CHECK = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#0c0d10" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 20 6.5"/></svg>`;
-// 축하 표시용 체크 — 달력 셀 배지(작게, 포인트색 원 위)와 오늘 카드 링 안(포인트색 선)
-const CHECK_MINI = `<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 20 6.5"/></svg>`;
-const CHECK_RING = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--ac)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 20 6.5"/></svg>`;
+// 축하 표시 — 다 한 날은 이모지로. (Material Symbols 는 단색이라 축하 느낌이 안 남)
+const PARTY = '🎉';
 
 // WMO 날씨 코드 → 아이콘 + 색
 function wxIconFor(code){
@@ -75,7 +74,7 @@ export function applyAccent(){
   const r = document.documentElement.style;
   r.setProperty('--ac', S.accent);
   r.setProperty('--acSoft', S.accent + '21');
-  r.setProperty('--acFaint', S.accent + '12');   // 달력 "다 했다" 셀 틴트 (오늘 셀보다 옅게)
+  r.setProperty('--acFaint', S.accent + '1c');   // 달력 "다 했다" 셀 틴트 (오늘 셀보다 옅게)
 }
 
 // 테마 적용: 'light'/'dark' 는 강제, 'auto' 는 시간대 기반(낮 라이트 / 저녁·밤 다크).
@@ -163,7 +162,7 @@ export function renderToday(){
     `<div class="cardHead">
       <div>
         <h2>Today</h2>
-        <div class="subline">${perfect ? 'All done for today!' : `${doneN} / ${total} done`}${streakTxt}</div>
+        <div class="subline">${perfect ? `All done for today! ${PARTY}` : `${doneN} / ${total} done`}${streakTxt}</div>
       </div>
       <div class="ring ${perfect?'full':''}">
         <svg width="60" height="60" viewBox="0 0 60 60">
@@ -172,7 +171,7 @@ export function renderToday(){
             stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off}"
             transform="rotate(-90 30 30)"/>
         </svg>
-        <div class="rTxt">${perfect ? CHECK_RING : `${doneN}/${total}`}</div>
+        <div class="rTxt">${perfect ? `<span class="rParty">${PARTY}</span>` : `${doneN}/${total}`}</div>
       </div>
     </div>`
     + list.map(c=>choreRow(c, ds)).join('')
@@ -202,13 +201,17 @@ export function renderCalendar(){
     }).join('');
     if(items.length > MAXMINI) minis += `<span class="mini more">+${items.length-(MAXMINI-1)}</span>`;
     const dense = items.length >= 3 ? ' dense' : '';   // 3개↑ → 한 줄에 2개
-    // 그날 집안일을 전부 끝낸 날 = 축하 표시. 배지는 absolute 라 셀 높이에 영향 없음
-    // (6주짜리 달에서도 마지막 주가 안 밀린다)
+    // 그날 집안일을 전부 끝낸 날 = 축하 표시. 🎉 둘 다 absolute 라 셀 높이에 영향 없음
+    // (6주짜리 달에서도 마지막 주가 안 밀린다) — 큰 건 배경 워터마크로 빈 칸을 채우고,
+    // 작은 건 우상단에 또렷하게 찍어 멀리서도 "다 한 날"이 스캔되게
     const perfect = allDone(d);
     const cls = [ds===todayStr ? 'today' : '', perfect ? 'perfect' : ''].join(' ').trim();
+    const party = perfect
+      ? `<span class="wowBg${dense?' quiet':''}" aria-hidden="true">${PARTY}</span><span class="wow" aria-label="All done">${PARTY}</span>`
+      : '';
     html += `<div class="cell ${cls}" onclick="openSheet('${ds}')">
+      ${party}
       <div class="dn ${wd===0?'sun':wd===6?'sat':''}">${day}</div>
-      ${perfect ? `<span class="wow" aria-label="All done">${CHECK_MINI}</span>` : ''}
       <div class="minis${dense}">${minis}</div></div>`;
   }
   $('#calGrid').innerHTML = html;
@@ -217,7 +220,7 @@ export function renderCalendar(){
     `<span class="li"><span class="dot" style="background:${S.people.A.color}"></span>${esc(S.people.A.name)}</span>`
     + `<span class="li"><span class="dot" style="background:${S.people.B.color}"></span>${esc(S.people.B.name)}</span>`
     + `<span class="li"><span class="dot" style="background:${S.accent}"></span>Both</span>`
-    + `<span class="li"><span class="wow lg">${CHECK_MINI}</span>All done</span>`
+    + `<span class="li"><span class="wow lg">${PARTY}</span>All done</span>`
     + `<span class="note">Daily chores hidden · tap a date for the full list</span>`;
 }
 
@@ -364,7 +367,7 @@ export function renderSheet(){
   if(!view.sheetDateStr) return;
   const d = parseYMD(view.sheetDateStr);
   const list = choresFor(d);
-  const tag = allDone(d) ? `<span class="allDoneTag">${CHECK_MINI} All done</span>` : '';
+  const tag = allDone(d) ? `<span class="allDoneTag">${PARTY} All done</span>` : '';
   $('#sheet').innerHTML = `<h3>${fmtDate(d)}${tag}</h3>` + list.map(c=>choreRow(c, view.sheetDateStr)).join('');
 }
 
@@ -375,7 +378,7 @@ let cheerT = 0;
 export function cheer(streak){
   const el = $('#cheer');
   if(!el) return;
-  el.innerHTML = `<span class="cheerIco">${svgIcon('party', 24)}</span>
+  el.innerHTML = `<span class="cheerIco">${PARTY}</span>
     <span class="cheerTxt"><b>All done!</b>
     <small>${streak>=2 ? `${streak} days in a row` : 'Everything checked off'}</small></span>`;
   el.classList.add('on');

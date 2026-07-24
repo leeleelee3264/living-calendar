@@ -2,7 +2,7 @@
    :root(다크 기본)에 두고, prefers-color-scheme 또는 data-theme=light 로 오버라이드.
    포인트색 var(--ac) 는 JS(applyAccent)가 설정값으로 갱신. 테마는 applyTheme 가 data-theme 로 적용. */
 :root{
-  --ac:#7ec8a3; --acSoft:rgba(126,200,163,.13); --acFaint:rgba(126,200,163,.07);
+  --ac:#7ec8a3; --acSoft:rgba(126,200,163,.13); --acFaint:rgba(126,200,163,.11);
   --bg:#0c0d10; --card:#15171b; --cellOut:#121317; --field:#0f1114;
   --ink:#eceef1; --sub:#98a0aa; --dim:#6b727b; --faint:#565c65;
   --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.09);
@@ -123,6 +123,7 @@ button{font-family:inherit;}
 .cardHead .subline{font-size:13px; color:var(--dim); font-weight:600; margin-top:4px;}
 .cardHead .subline b{color:var(--ac); font-weight:700;}   /* 연속 완료(스트릭) 강조 */
 .ring.full .rTxt{color:var(--ac);}
+.rParty{font-size:25px; line-height:1;}   /* 링 안 🎉 */
 .ring{position:relative; width:60px; height:60px; flex:none;}
 .ring svg{display:block;}
 .ring .rTxt{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
@@ -167,14 +168,20 @@ button{font-family:inherit;}
   cursor:pointer; min-height:0; overflow:hidden;}
 .cell.empty{background:var(--cellOut); cursor:default;}
 .cell.today{background:var(--acSoft); box-shadow:inset 0 0 0 1px var(--ac);}
-/* "다 했다" 축하 — 그날 집안일을 전부 체크한 날. 옅은 포인트색 + 우상단 체크 배지.
-   배지는 absolute 라 셀 높이에 영향 없음(6주짜리 달에서 마지막 주 안 밀림) */
+/* "다 했다" 축하 — 그날 집안일을 전부 체크한 날.
+   ① 셀 배경에 큰 🎉 워터마크(빈 칸 채우기) ② 우상단에 또렷한 🎉(멀리서 스캔용) ③ 포인트색 틴트.
+   둘 다 absolute + pointer-events:none 이라 셀 높이·탭 영역에 영향 없음
+   (6주짜리 달에서 마지막 주 안 밀림) */
 .cell.perfect{background:var(--acFaint);}
 .cell.today.perfect{background:var(--acSoft);}
-.wow{position:absolute; top:6px; right:6px; width:15px; height:15px; border-radius:50%;
-  background:var(--ac); color:var(--onAcc); flex:none;
-  display:flex; align-items:center; justify-content:center;}
-.wow.lg{position:static; width:14px; height:14px;}   /* 범례용 */
+.cell.perfect .dn, .cell.perfect .minis{position:relative; z-index:1;}   /* 워터마크 위로 */
+.wowBg{position:absolute; left:50%; top:54%; transform:translate(-50%,-50%);
+  font-size:34px; line-height:1; opacity:.22; pointer-events:none; user-select:none; z-index:0;}
+.wow{position:absolute; top:4px; right:5px; font-size:17px; line-height:1;
+  pointer-events:none; user-select:none; z-index:1;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));}
+.wow.lg{position:static; font-size:14px; filter:none;}   /* 범례용 */
+.wowBg.quiet{opacity:.12;}   /* 라벨 많은 날(3개↑)은 더 죽여 라벨 가독성 유지 */
 .dn{font-family:var(--num); font-size:14px; font-weight:600; color:var(--dnInk); line-height:1;}
 .dn.sun{color:var(--sun);} .dn.sat{color:var(--sat);}
 .cell.today .dn{color:var(--ac); font-weight:700;}
@@ -214,7 +221,8 @@ button{font-family:inherit;}
   box-shadow:0 14px 38px rgba(0,0,0,.3);
   transition:opacity .3s ease, transform .3s cubic-bezier(.2,.9,.3,1.2);}
 .cheer.on{opacity:1; transform:translate(-50%, 0);}
-.cheer .cheerIco{color:var(--ac); display:flex; flex:none;}
+.cheer .cheerIco{font-size:30px; line-height:1; flex:none; animation:partyPop .5s cubic-bezier(.2,.9,.3,1.5);}
+@keyframes partyPop{0%{transform:scale(.4) rotate(-18deg);}60%{transform:scale(1.18) rotate(6deg);}100%{transform:scale(1) rotate(0);}}
 .cheer .cheerTxt{display:flex; flex-direction:column; line-height:1.25;}
 .cheer .cheerTxt b{font-size:15.5px; font-weight:700; color:var(--ink);}
 .cheer .cheerTxt small{font-size:12.5px; font-weight:600; color:var(--sub); margin-top:3px;}
