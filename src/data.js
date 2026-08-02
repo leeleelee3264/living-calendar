@@ -11,9 +11,9 @@ export const NTH = ['1st', '2nd', '3rd', '4th'];
 // 집안일 정의 (id → 라인아이콘 이름/이름/주기/매일 여부/달력 축약 라벨)
 export const CHORES = {
   trashBathroom:{icon:'trash',    name:'Empty bathroom bin',   freq:'Daily', daily:true},
-  trashRecycle: {icon:'recycle',  name:'Trash · recycling',    freq:'Daily', daily:true},
-  vacuum:       {icon:'broom',    name:'Vacuum',               freq:'Daily', daily:true},
   makeBed:      {icon:'bed',      name:'Make the bed',         freq:'Daily', daily:true},
+  trashRecycle: {icon:'recycle',  name:'Trash · recycling',    freq:'3×/week',                short:'Trash'},
+  vacuum:       {icon:'broom',    name:'Vacuum',               freq:'3×/week',                short:'Vac'},
   laundry:      {icon:'basket',   name:'Laundry',              freq:'3×/week · wash to fold', short:'Laundry'},
   mop:          {icon:'droplets', name:'Mopping',              freq:'Weekly',                 short:'Mop'},
   bathroomClean:{icon:'toilet',   name:'Clean bathroom',       freq:'Biweekly · alternating', short:'Bath'},

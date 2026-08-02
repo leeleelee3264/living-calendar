@@ -8,7 +8,9 @@ export const DEFAULTS = {
   sleep:{on:true, start:23, end:6},   // 심야 검정 오버레이(번인방지): 23시~6시
   anchor:'2026-07-01',
   people:{A:{name:'Person A', color:'#6d8dff'}, B:{name:'Person B', color:'#ff85a5'}},
-  daily:{trashBathroom:'B', trashRecycle:'A', vacuum:'A', makeBed:'both'},
+  daily:{trashBathroom:'B', makeBed:'both'},
+  trashRecycle:{days:[2,4,6], owner:'A'},
+  vacuum:{days:[2,4,6], owner:'A'},
   laundry:{days:[2,4,6], owner:'B'},
   mop:{day:0, mode:'rotate', first:'B'},
   bathroomClean:{day:6, startWeek:0, first:'A'},
@@ -26,10 +28,22 @@ function deepMerge(base, over){
   return base;
 }
 
+// 구 스키마(쓰레기·청소기가 daily 였던 시절) → 주 3회(요일 지정)로 이관.
+// raw 에 새 키가 없으면 "빨래와 같은 날"로 맞추고 담당은 예전 daily 값을 물려받는다.
+// 사용자가 설정을 한 번이라도 바꾸면 새 키가 저장/업로드되어 이 분기는 더 안 탄다.
+function migrate(s, raw){
+  const old = s.daily;
+  if(raw && !raw.trashRecycle) s.trashRecycle = {days:[...s.laundry.days], owner: old.trashRecycle || s.trashRecycle.owner};
+  if(raw && !raw.vacuum)       s.vacuum       = {days:[...s.laundry.days], owner: old.vacuum       || s.vacuum.owner};
+  delete s.daily.trashRecycle;   // 더는 안 읽히는 잔재
+  delete s.daily.vacuum;
+  return s;
+}
+
 export function loadSettings(){
   try{
     const raw = JSON.parse(localStorage.getItem('chores-settings-v2') || '{}');
-    return deepMerge(JSON.parse(JSON.stringify(DEFAULTS)), raw);
+    return migrate(deepMerge(JSON.parse(JSON.stringify(DEFAULTS)), raw), raw);
   }catch(e){ return JSON.parse(JSON.stringify(DEFAULTS)); }
 }
 
@@ -46,7 +60,7 @@ export function resetSettings(){
 // 이름(people)·스케줄·테마·포인트색이 여기서 들어온다. (base 는 livingAccount 가 별도 처리)
 export function applyRemoteSettings(data){
   if(!data || typeof data !== 'object') return;
-  S = deepMerge(JSON.parse(JSON.stringify(DEFAULTS)), data);
+  S = migrate(deepMerge(JSON.parse(JSON.stringify(DEFAULTS)), data), data);
   saveSettings();
 }
 

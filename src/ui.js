@@ -444,6 +444,12 @@ function segBtns(k, opts, cur, extra){
     `<button data-act="seg" data-k="${k}" data-v="${o.v}" ${extra||''}
       class="${String(o.v)===String(cur)?'on':''}">${o.label}</button>`).join('') + `</span>`;
 }
+// 요일 고르기(복수 선택) — 빨래·쓰레기·청소기가 같이 쓴다
+function dayBtns(key, days){
+  return `<span style="display:flex;gap:4px;flex-wrap:wrap;">` + WD.map((w,i)=>
+    `<button class="dayb ${days.includes(i)?'on':''}" data-act="days" data-k="${key}" data-v="${i}">${w}</button>`
+  ).join('') + `</span>`;
+}
 function dSelFull(key, val){
   return `<select data-sel="${key}">` +
     WD_FULL.map((w,i)=>`<option value="${i}" ${i===val?'selected':''}>${w}</option>`).join('') + `</select>`;
@@ -477,19 +483,27 @@ function renderSettingsBody(){
       <div class="sec">Daily</div>
       <div class="frow"><label>${svgIcon('trash',16)}${CHORES.trashBathroom.name}</label>
         ${pBtn(S.daily.trashBathroom, `data-act="flip" data-path="daily.trashBathroom"`)}</div>
-      <div class="frow"><label>${svgIcon('recycle',16)}${CHORES.trashRecycle.name}</label>
-        ${pBtn(S.daily.trashRecycle, `data-act="flip" data-path="daily.trashRecycle"`)}</div>
-      <div class="frow"><label>${svgIcon('broom',16)}${CHORES.vacuum.name}</label>
-        ${pBtn(S.daily.vacuum, `data-act="flip" data-path="daily.vacuum"`)}</div>
       <div class="frow"><label>${svgIcon('bed',16)}${CHORES.makeBed.name}</label>
         ${segBtns('daily.makeBed', [{v:'both',label:'Both'},{v:'A',label:esc(S.people.A.name)},{v:'B',label:esc(S.people.B.name)}], S.daily.makeBed)}</div>
     </div>
 
     <div class="secCard">
+      <div class="sec">Trash · recycling (3×/week)</div>
+      <div class="frow"><label>${svgIcon('recycle',16)}Days</label>${dayBtns('trashRecycle.days', S.trashRecycle.days)}</div>
+      <div class="frow"><label>Who</label>
+        ${pBtn(S.trashRecycle.owner, `data-act="flip" data-path="trashRecycle.owner"`)}</div>
+    </div>
+
+    <div class="secCard">
+      <div class="sec">Vacuum (3×/week)</div>
+      <div class="frow"><label>${svgIcon('broom',16)}Days</label>${dayBtns('vacuum.days', S.vacuum.days)}</div>
+      <div class="frow"><label>Who</label>
+        ${pBtn(S.vacuum.owner, `data-act="flip" data-path="vacuum.owner"`)}</div>
+    </div>
+
+    <div class="secCard">
       <div class="sec">Laundry (3×/week)</div>
-      <div class="frow"><label>${svgIcon('basket',16)}Days</label>
-        <span style="display:flex;gap:4px;flex-wrap:wrap;">${WD.map((w,i)=>
-          `<button class="dayb ${S.laundry.days.includes(i)?'on':''}" data-act="ld" data-v="${i}">${w}</button>`).join('')}</span></div>
+      <div class="frow"><label>${svgIcon('basket',16)}Days</label>${dayBtns('laundry.days', S.laundry.days)}</div>
       <div class="frow"><label>Who</label>
         ${pBtn(S.laundry.owner, `data-act="flip" data-path="laundry.owner"`)}</div>
     </div>
@@ -606,13 +620,12 @@ export function initSettings(){
       setPath(S, b.dataset.k, v);
       commitSettings();
     }
-    else if(act==='ld'){
-      const v = Number(b.dataset.v);
-      if(S.laundry.days.includes(v)){
-        if(S.laundry.days.length > 1) S.laundry.days = S.laundry.days.filter(x=>x!==v);
+    else if(act==='days'){
+      const k = b.dataset.k, v = Number(b.dataset.v), cur = getPath(S, k);
+      if(cur.includes(v)){
+        if(cur.length > 1) setPath(S, k, cur.filter(x=>x!==v));   // 마지막 하나는 못 끄게 (요일 0개 방지)
       }else{
-        S.laundry.days.push(v);
-        S.laundry.days.sort((a,b2)=>a-b2);
+        setPath(S, k, [...cur, v].sort((a,b2)=>a-b2));
       }
       commitSettings();
     }

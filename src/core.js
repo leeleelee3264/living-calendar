@@ -72,8 +72,8 @@ export function choresFor(d){
   const wi = weekIndex(d);
 
   list.push({id:'trashBathroom', who:S.daily.trashBathroom});
-  list.push({id:'trashRecycle',  who:S.daily.trashRecycle});
-  list.push({id:'vacuum',        who:S.daily.vacuum});
+  if(S.trashRecycle.days.includes(wd)) list.push({id:'trashRecycle', who:S.trashRecycle.owner});
+  if(S.vacuum.days.includes(wd))       list.push({id:'vacuum',       who:S.vacuum.owner});
   list.push({id:'makeBed',       who:S.daily.makeBed});
 
   if(S.laundry.days.includes(wd)) list.push({id:'laundry', who:S.laundry.owner});
