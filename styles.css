@@ -109,11 +109,13 @@ button{font-family:inherit;}
 .wx{display:flex; align-items:center; gap:13px; padding:15px 20px;
   background:var(--card); border:1px solid var(--line); border-radius:16px; cursor:pointer;}
 .wx .wxIcon{display:flex; flex:none;}
-.wx .wxTemp{font-size:19px; font-weight:700; flex:none;}
-.wx .wxTemp .wxMin{font-size:15px; font-weight:600; color:var(--sub); margin-left:5px;}
-.wx .wxDesc{font-size:14px; font-weight:600; color:var(--sub);
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.wx .wxDesc.rain{color:#7ea6d6;}
+/* 지금 기온이 주인공, 24시간 최고/최저는 옆에 작게 */
+.wx .wxNow{font-size:24px; font-weight:700; flex:none; letter-spacing:-.5px;
+  font-family:'Space Grotesk', ui-sans-serif, system-ui, sans-serif;}
+.wx .wxTemp{font-size:14px; font-weight:600; color:var(--sub); flex:none;}
+.wx .wxTemp .wxHi{color:var(--ink); font-weight:700;}
+.wx .wxTemp .wxMin{margin-left:3px;}
+.wx .wxLoad{font-size:14px; font-weight:600; color:var(--sub);}
 .wx .wxHum{font-size:14px; color:var(--dim); margin-left:auto; flex:none;}
 .wx .wxMore{font-size:14px; color:var(--faint); flex:none;}
 
@@ -189,6 +191,17 @@ button{font-family:inherit;}
 .mini{font-size:9.5px; font-weight:600; letter-spacing:-.2px; line-height:1.3; padding:1.5px 4px;
   border-radius:5px; white-space:nowrap; text-align:center; overflow:hidden; text-overflow:ellipsis; min-width:0;}
 .mini.more{color:var(--dim); background:var(--line07);}
+
+/* 돈 일정(12일 입금 · 28일 월세) — 집안일 알약과 섞이지 않게 한 줄 띄우고 구분선 위에 */
+.evts{margin-top:5px; padding-top:4px; border-top:1px dashed var(--line2);}
+.evt{display:block; font-size:9.5px; font-weight:700; letter-spacing:-.2px; line-height:1.35;
+  padding:1.5px 4px; border-radius:5px; text-align:center; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; color:var(--ac); background:var(--acSoft);}
+.evt.lg{display:inline-block; font-size:10px; padding:1px 6px;}
+.evtRow{display:flex; align-items:center; gap:9px; padding:9px 0 4px;
+  font-size:13.5px; color:var(--sub); font-weight:600;}
+.evtRow .evt{flex:none; display:inline-block; font-size:11px; padding:2px 8px;}
+
 .legend{margin-top:14px; padding-top:14px; border-top:1px solid var(--line05);
   display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px;
   font-size:12.5px; color:var(--faint);}
@@ -368,29 +381,20 @@ button.chip{font-size:13px; font-weight:700;}
 
 /* 집안일 카드 (설정) — 모든 집안일이 같은 모양이라 카드 하나로 통일 */
 .secTop{margin-top:16px;}
-.chCard{padding-top:11px;}
-.chHead{display:flex; align-items:center; gap:9px; margin-bottom:4px;}
+.chCard{padding-top:12px;}
+.chHead{display:flex; align-items:center; gap:9px; margin-bottom:6px;}
+.chHead .chIco{display:flex;}
 .chHead .chIco .msym{color:var(--cicon);}
-.chName{flex:1; min-width:0; border:1px solid transparent; border-radius:9px;
-  padding:6px 8px; font-size:15px; font-weight:700; font-family:inherit;
-  background:transparent; color:var(--ink);}
-.chName:hover{border-color:var(--line2);}
-.chName:focus{border-color:var(--ac); background:var(--field); outline:none;}
-.chDel{border:none; background:transparent; color:var(--dim); cursor:pointer;
-  padding:5px; border-radius:8px; display:flex; flex:none;}
-.chDel:hover{color:var(--ink); background:var(--field);}
-/* 아이콘은 한 줄 가로 스크롤 — 카드마다 여러 줄이 되면 설정창이 끝없이 길어진다 */
-.icoPick{display:flex; gap:5px; flex-wrap:nowrap; overflow-x:auto; max-width:250px;
-  padding-bottom:2px; scrollbar-width:none;}
-.icoPick::-webkit-scrollbar{display:none;}
-.icob{flex:none;}
-.icob{border:1px solid var(--line2); background:transparent; border-radius:8px;
-  padding:4px 5px; cursor:pointer; display:flex; color:var(--sub);}
-.icob.on{background:var(--acSoft); border-color:var(--ac); color:var(--ink);}
-.addChore{width:100%; margin-top:12px; padding:12px; border-radius:14px;
-  border:1px dashed var(--line2); background:transparent; color:var(--sub);
-  font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;}
-.addChore:hover{border-color:var(--ac); color:var(--ink);}
+.chTtl{font-size:15px; font-weight:700; color:var(--ink);}
+
+/* 담당 토글 — 고른 쪽만 그 사람 색이 들어오고 나머지는 회색 */
+.whoTog{display:inline-flex; gap:6px; flex:none;}
+.whoBtn{display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+  border:1px solid var(--line2); background:transparent; color:var(--dim);
+  border-radius:11px; padding:7px 12px; font-size:13px; font-weight:600; font-family:inherit;}
+.whoBtn .dot{width:9px; height:9px; border-radius:5px; flex:none; opacity:.45;}
+.whoBtn.on{font-weight:700;}
+.whoBtn.on .dot{opacity:1;}
 
 .swatches{display:flex; gap:9px;}
 .sw{width:30px; height:30px; border-radius:10px; border:none; padding:0; cursor:pointer;}

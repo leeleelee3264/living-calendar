@@ -22,6 +22,9 @@ export const LEGACY_CHORES = {
   fridge:       {icon:'fridge',   name:'Clean fridge',          short:'Fridge'},
 };
 
+// 포인트 색 후보. 두 사람 색(파랑=승민 / 초록=Ashleigh)과 겹치지 않는 색만 둔다.
+export const ACCENTS = ['#c9a2e0', '#f0899f', '#f2907c', '#8d95a8'];
+
 // 주기 선택지 — 스케줄 엔진이 아는 값 + 설정 세그먼트 라벨
 export const FREQS = [
   {v:'daily',    label:'Daily'},
@@ -30,9 +33,11 @@ export const FREQS = [
   {v:'monthly',  label:'Monthly'},
 ];
 
-// 집안일 아이콘 후보 (설정에서 고른다)
-// ⚠️ Material Symbols 에 실제로 있는 이름만 — 없는 이름은 글자 그대로 렌더된다 ('sink' 사고)
-export const CHORE_ICONS = [
-  'trash','recycle','broom','bed','basket','droplets','toilet','fridge',
-  'dishes','cart','plant','pets','iron','window','tools','soap',
+// 같이 살기 시작한 달. 이 앞은 달력에 아무것도 안 띄우고 이전 달로도 못 넘어간다.
+export const START = '2026-07-01';
+
+// 매달 같은 날 돌아오는 돈 일정 — 집안일이 아니라 별도 줄로 보여준다
+export const EVENTS = [
+  {day:12, short:'Shared account', name:'Move rent + expenses into the shared account'},
+  {day:28, short:'Rent day',       name:'Rent is paid today'},
 ];

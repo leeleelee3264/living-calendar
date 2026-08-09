@@ -1,6 +1,7 @@
 // 앱 진입점 · 컨트롤러: 상호작용 정의, 이벤트 배선, 상시 노출용 타이머.
 import { DONE, OVR, persistDone, persistOvr, applyRemoteSettings, applyRemoteChecks } from './storage.js';
 import { ymd, parseYMD, choresFor, allDone, streakBack } from './core.js';
+import { START } from './data.js';
 import { fetchWeather } from './weather.js';
 import { addTx, deleteTx, setTxs, setBase } from './livingAccount.js';
 import * as sb from './supabase.js';
@@ -26,7 +27,7 @@ function toggleDone(ds, id){
 function swapWho(ev, ds, id){
   ev.preventDefault(); ev.stopPropagation();
   const item = choresFor(parseYMD(ds)).find(c=>c.id===id);
-  if(!item || item.who==='both') return;
+  if(!item) return;
   const other = item.who==='A' ? 'B' : 'A';
   const k = ds+'|'+id;
   if(other === item.base) delete OVR[k]; else OVR[k] = other;
@@ -50,7 +51,19 @@ function openAccountSheet(){
   $('#sheetWrap').classList.add('open');
 }
 // 생활비 입력 폼: 텍스트 입력은 재렌더 없이 상태만 갱신 (커서 튐 방지)
-function acctFormInput(field, val){ view.acctForm[field] = val; }
+// 금액만 예외 — 치는 동안 3자리마다 콤마를 넣어 준다 (표시 금액과 같은 모양으로)
+function acctFormInput(field, val, el){
+  if(field === 'amount'){
+    const digits = String(val).replace(/[^0-9]/g, '');
+    val = digits ? Number(digits).toLocaleString('en-US') : '';
+    if(el && el.value !== val){
+      el.value = val;
+      const end = val.length;
+      try{ el.setSelectionRange(end, end); }catch(e){}   // 숫자는 왼→오로 치므로 끝으로 보내면 충분
+    }
+  }
+  view.acctForm[field] = val;
+}
 function submitAcct(){
   const f = view.acctForm;
   const amt = Number(String(f.amount).replace(/[^0-9.]/g,''));
@@ -85,7 +98,12 @@ $('#sheetWrap').addEventListener('click', e=>{
   else if(act==='acctSubmit'){ submitAcct(); }
   else if(act==='acctDel'){ deleteTx(b.dataset.id); renderAccount(); renderSheet(); sb.deleteTx(b.dataset.id).catch(()=>{}); }
 });
-$('#btnPrev').onclick = ()=>{ view.m--; if(view.m<0){view.m=11;view.y--;} renderCalendar(); };
+$('#btnPrev').onclick = ()=>{
+  const st = parseYMD(START);
+  if(view.y === st.getFullYear() && view.m === st.getMonth()) return;   // 같이 살기 전으론 안 감
+  view.m--; if(view.m<0){view.m=11;view.y--;}
+  renderCalendar();
+};
 $('#btnNext').onclick = ()=>{ view.m++; if(view.m>11){view.m=0;view.y++;} renderCalendar(); };
 $('#btnCalToday').onclick = ()=>{ const n=new Date(); view.y=n.getFullYear(); view.m=n.getMonth(); renderCalendar(); };
 

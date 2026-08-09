@@ -1,12 +1,10 @@
 // 뷰 계층: 화면 렌더링 + 설정 다이얼로그. 상태를 읽어 DOM 을 그린다.
 // (이벤트 배선·상호작용은 main.js)
-import { FREQS, CHORE_ICONS, NTH, WD, WD_FULL, MON_SHORT, MON_FULL } from './data.js';
+import { FREQS, ACCENTS, START, WD, WD_FULL, MON_SHORT, MON_FULL } from './data.js';
 import { S, DONE, saveSettings, resetSettings, fillFreq } from './storage.js';
 import {
-  ymd, parseYMD, fmtDate, fmtShort, inHourRange,
-  pick, weekIndex, mod, otherOf,
-  addDays, nextWeekdayDate, choresFor,
-  choreDef, occIndex, nextOccurrence, freqLabel, shortOf,
+  ymd, parseYMD, fmtDate, inHourRange,
+  choresFor, eventsFor, choreDef, freqLabel, shortOf,
   allDone, currentStreak,
 } from './core.js';
 import { wx24, wxWeek, wxInfo, repWeather } from './weather.js';
@@ -100,12 +98,10 @@ function choreRow(c, ds){
   const ch = choreDef(c.id);
   if(!ch) return '';
   const swapped = c.who !== c.base;
-  const chip = c.who==='both'
-    ? `<span class="chip"><span class="dot" style="background:var(--ac)"></span><span class="nm">Both</span></span>`
-    : (()=>{ const p = S.people[c.who];
-        return `<button class="chip tap" onclick="swapWho(event,'${ds}','${c.id}')">
-          <span class="dot" style="background:${p.color}"></span>
-          <span class="nm">${swapped?'↔ ':''}${esc(p.name)}</span></button>`; })();
+  const p = S.people[c.who];
+  const chip = `<button class="chip tap" onclick="swapWho(event,'${ds}','${c.id}')">
+    <span class="dot" style="background:${p.color}"></span>
+    <span class="nm">${swapped?'↔ ':''}${esc(p.name)}</span></button>`;
   const freq = ch.freq==='daily' ? '' : `<small>${freqLabel(ch)}</small>`;   // "매일" 은 노이즈라 생략
   return `<div class="chore ${done?'done':''}" onclick="toggleDone('${ds}','${c.id}')">
     <span class="cbox">${done?CHECK:''}</span>
@@ -201,7 +197,7 @@ export function renderCalendar(){
     const MAXMINI = 4;                       // 넘치면 마지막을 +N 으로 (셀 높이 넘침 방지)
     const shown = items.length > MAXMINI ? items.slice(0, MAXMINI-1) : items;
     let minis = shown.map(c=>{
-      const col = c.who==='both' ? S.accent : S.people[c.who].color;
+      const col = S.people[c.who].color;
       return `<span class="mini" style="color:${col};background:${col}2e">${esc(shortOf(choreDef(c.id)))}</span>`;
     }).join('');
     if(items.length > MAXMINI) minis += `<span class="mini more">+${items.length-(MAXMINI-1)}</span>`;
@@ -212,17 +208,24 @@ export function renderCalendar(){
     const perfect = allDone(d);
     const cls = [ds===todayStr ? 'today' : '', perfect ? 'perfect' : ''].join(' ').trim();
     const party = perfect ? `<span class="wow" aria-label="All done">${PARTY}</span>` : '';
+    // 돈 일정(12일 입금 · 28일 월세)은 집안일과 섞이지 않게 한 줄 띄워서 아래에 붙인다
+    const evs = eventsFor(d);
+    const evtHTML = evs.length
+      ? `<div class="evts">${evs.map(e=>`<span class="evt">${esc(e.short)}</span>`).join('')}</div>` : '';
     html += `<div class="cell ${cls}" onclick="openSheet('${ds}')">
       ${party}
       <div class="dn ${wd===0?'sun':wd===6?'sat':''}">${day}</div>
-      <div class="minis${dense}">${minis}</div></div>`;
+      <div class="minis${dense}">${minis}</div>${evtHTML}</div>`;
   }
   $('#calGrid').innerHTML = html;
+  // 같이 살기 전(2026-07 이전)으로는 못 넘어간다
+  const st = parseYMD(START);
+  $('#btnPrev').disabled = (view.y === st.getFullYear() && view.m === st.getMonth());
 
   $('#calLegend').innerHTML =
     `<span class="li"><span class="dot" style="background:${S.people.A.color}"></span>${esc(S.people.A.name)}</span>`
     + `<span class="li"><span class="dot" style="background:${S.people.B.color}"></span>${esc(S.people.B.name)}</span>`
-    + `<span class="li"><span class="dot" style="background:${S.accent}"></span>Both</span>`
+    + `<span class="li"><span class="evt lg">Money</span>12th · 28th</span>`
     + `<span class="li"><span class="wow lg">${PARTY}</span>All done</span>`
     + `<span class="note">Daily chores hidden · tap a date for the full list</span>`;
 }
@@ -232,17 +235,17 @@ export function renderWeather(){
   const el = $('#wxBar');
   if(!el) return;
   const win = wx24();
-  if(!win){ el.innerHTML = `<span class="wxDesc">Loading weather…</span>`; return; }
+  if(!win){ el.innerHTML = `<span class="wxLoad">Loading weather…</span>`; return; }
   const temps = win.map(x=>x.temp);
-  const code = repWeather(win);
-  const w = wxInfo(code);
-  const ic = wxIconFor(code);
+  const ic = wxIconFor(repWeather(win));
+  const nowT = win[0] ? win[0].temp : null;      // 창의 첫 칸 = 지금 시각
   const hum = win[0] && win[0].humidity!=null
     ? `<span class="wxHum">Humidity ${win[0].humidity}%</span>` : `<span class="wxHum"></span>`;
   el.innerHTML =
     `<span class="wxIcon" style="color:${ic.color}">${svgIcon(ic.name, 26, 1.6)}</span>`
-    + `<span class="wxTemp">${Math.max(...temps)}°<span class="wxMin">/ ${Math.min(...temps)}°</span></span>`
-    + `<span class="wxDesc ${w.precip?'rain':''}">${w.en}</span>`
+    + `<span class="wxNow">${nowT!=null ? nowT+'°' : '—'}</span>`
+    + `<span class="wxTemp"><span class="wxHi">${Math.max(...temps)}°</span>`
+    + `<span class="wxMin">/ ${Math.min(...temps)}°</span></span>`
     + hum
     + `<span class="wxMore">›</span>`;
 }
@@ -322,7 +325,7 @@ function acctFormHTML(){
     <div class="afTop">${typeSeg}</div>
     <div class="afRow"><span class="afWon">₩</span>
       <input class="afAmt" inputmode="numeric" placeholder="0" value="${esc(f.amount)}"
-        oninput="acctFormInput('amount', this.value)"></div>
+        oninput="acctFormInput('amount', this.value, this)"></div>
     <input class="afMemo" type="text" placeholder="Note (e.g. groceries)" value="${esc(f.memo)}"
       oninput="acctFormInput('memo', this.value)">
     <label class="afDate"><span>Date</span>
@@ -371,7 +374,9 @@ export function renderSheet(){
   const d = parseYMD(view.sheetDateStr);
   const list = choresFor(d);
   const tag = allDone(d) ? `<span class="allDoneTag">${PARTY} All done</span>` : '';
-  $('#sheet').innerHTML = `<h3>${fmtDate(d)}${tag}</h3>` + list.map(c=>choreRow(c, view.sheetDateStr)).join('');
+  const evts = eventsFor(d).map(e=>`<div class="evtRow"><span class="evt">${esc(e.short)}</span>${esc(e.name)}</div>`).join('');
+  $('#sheet').innerHTML = `<h3>${fmtDate(d)}${tag}</h3>${evts}`
+    + list.map(c=>choreRow(c, view.sheetDateStr)).join('');
 }
 
 /* ---------- 축하 배너 ----------
@@ -398,8 +403,6 @@ export function renderAll(){
    설정 다이얼로그 — 쉬운 말 + 실제 날짜/이름, 변경 즉시 저장·적용
 ==================================================================== */
 
-const ACCENTS = ['#7ec8a3', '#e6a95c', '#6ea8ff', '#c9a2e0'];
-
 /* ---------- 전체화면 (iOS Safari 는 webkit 접두사 필요) ---------- */
 function fsElement(){ return document.fullscreenElement || document.webkitFullscreenElement || null; }
 function enterFull(el){
@@ -418,24 +421,7 @@ function setPath(o, p, v){
   x[ks[ks.length-1]] = v;
 }
 
-// 번갈아 하는 집안일에서 사용자가 "다음 차례 = OO" 를 탭하면
-// → 그 날짜가 OO 가 되도록 내부 first(첫 차례 담당)를 역산한다. 주기 종류와 무관하게 동작.
-function flipRotation(c){
-  const nx = nextOccurrence(c);
-  if(!nx) return;
-  const occ = occIndex(c, nx);
-  const nw = otherOf(pick(c.first || 'A', occ));
-  c.first = mod(occ,2)===0 ? nw : otherOf(nw);
-}
-
 /* ---------- 폼 위젯 빌더 ---------- */
-function pBtn(who, attrs){
-  const p = S.people[who];
-  return `<button class="chip tap" ${attrs}
-    style="background:${p.color}1e;border-color:${p.color}66">
-    <span class="dot" style="background:${p.color}"></span>
-    <span class="nm" style="color:${p.color}">${esc(p.name)}</span></button>`;
-}
 function segBtns(k, opts, cur, extra){
   return `<span class="seg">` + opts.map(o=>
     `<button data-act="seg" data-k="${k}" data-v="${o.v}" ${extra||''}
@@ -447,21 +433,23 @@ function dayBtns(key, days){
     `<button class="dayb ${days.includes(i)?'on':''}" data-act="days" data-k="${key}" data-v="${i}">${w}</button>`
   ).join('') + `</span>`;
 }
-function dSelFull(key, val){
-  return `<select data-sel="${key}">` +
-    WD_FULL.map((w,i)=>`<option value="${i}" ${i===val?'selected':''}>${w}</option>`).join('') + `</select>`;
-}
-function nSelM(key, val){
-  return `<select data-sel="${key}">` +
-    NTH.map((n,i)=>`<option value="${i+1}" ${i+1===val?'selected':''}>${n}</option>`).join('') + `</select>`;
-}
 function hSel(key, val){
   let opts = '';
   for(let h=0; h<24; h++) opts += `<option value="${h}" ${h===val?'selected':''}>${String(h).padStart(2,'0')}:00</option>`;
   return `<select data-sel="${key}">${opts}</select>`;
 }
 
-// 집안일 카드 1개 — 모든 집안일이 같은 모양이다: 이름 · 아이콘 · 주기 · (주기별 상세) · 담당
+// 담당 고르기 — 두 사람뿐이라 토글 두 개. 고른 쪽만 그 사람 색, 나머지는 회색.
+function ownerToggle(path, cur){
+  return `<span class="whoTog">` + ['A','B'].map(k=>{
+    const p = S.people[k], on = (cur === k);
+    const style = on ? `background:${p.color}1f;border-color:${p.color};color:${p.color}` : '';
+    return `<button class="whoBtn ${on?'on':''}" data-act="seg" data-k="${path}" data-v="${k}" style="${style}">
+      <span class="dot" style="background:${on?p.color:'currentColor'}"></span>${esc(p.name)}</button>`;
+  }).join('') + `</span>`;
+}
+
+// 집안일 카드 1개 — 주기 · (주기별 상세) · 담당. 이름/아이콘은 고정이라 건드리지 않는다.
 function choreCard(c, i){
   const p = `chores.${i}`;
   const freqSeg = `<span class="seg">` + FREQS.map(f=>
@@ -471,42 +459,21 @@ function choreCard(c, i){
   let detail = '';
   if(c.freq==='weekly'){
     detail = `<div class="frow"><label>Days</label>${dayBtns(p+'.days', c.days||[])}</div>`;
-  }else if(c.freq==='biweekly'){
-    // "다음은 언제냐"로 격주 주기를 고르게 한다 (내부 주 패리티를 그대로 노출하면 못 알아본다)
-    const c1 = nextWeekdayDate(c.day), c2 = addDays(c1, 7);
-    detail = `<div class="frow"><label>Day</label>${dSelFull(p+'.day', c.day)}</div>
-      <div class="frow"><label>Next</label>
-        ${segBtns(p+'.startWeek',
-          [{v:mod(weekIndex(c1),2), label:fmtShort(c1)}, {v:mod(weekIndex(c2),2), label:fmtShort(c2)}],
-          c.startWeek, 'data-num="1"')}</div>`;
-  }else if(c.freq==='monthly'){
-    detail = `<div class="frow"><label>Every</label>${nSelM(p+'.nth', c.nth)} ${dSelFull(p+'.day', c.day)}</div>`;
+  }else if(c.freq==='biweekly' || c.freq==='monthly'){
+    // 시작 날짜 하나만 고르면 된다 — 그 날짜의 요일(격주) / 일(매월)이 그대로 규칙이 된다
+    detail = `<div class="frow"><label>Starts</label>
+        <input type="date" data-selstr="${p}.start" value="${esc(c.start||'')}" min="${START}"></div>
+      <p class="help">${freqLabel(c)}</p>`;
   }
-
-  const ownerSeg = segBtns(p+'.owner', [
-    {v:'A', label:esc(S.people.A.name)}, {v:'B', label:esc(S.people.B.name)},
-    {v:'both', label:'Both'}, {v:'rotate', label:'Alternate'},
-  ], c.owner);
-  const nx = nextOccurrence(c);
-  const rotRow = (c.owner==='rotate' && nx)
-    ? `<div class="frow"><label>Next · ${fmtShort(nx)}</label>
-        ${pBtn(pick(c.first||'A', occIndex(c, nx)), `data-act="cflip" data-i="${i}"`)}</div>` : '';
-
-  const icons = `<span class="icoPick">` + CHORE_ICONS.map(ic=>
-    `<button class="icob ${c.icon===ic?'on':''}" data-act="seg" data-k="${p}.icon" data-v="${ic}"
-      aria-label="${ic}">${svgIcon(ic,17)}</button>`).join('') + `</span>`;
 
   return `<div class="secCard chCard">
     <div class="chHead">
       <span class="chIco">${svgIcon(c.icon,18)}</span>
-      <input class="chName" type="text" value="${esc(c.name)}" data-txt="${p}.name" aria-label="Chore name">
-      <button class="chDel" data-act="cdel" data-i="${i}" aria-label="Remove chore">${svgIcon('close',18)}</button>
+      <span class="chTtl">${esc(c.name)}</span>
     </div>
     <div class="frow"><label>Repeat</label>${freqSeg}</div>
     ${detail}
-    <div class="frow"><label>Who</label>${ownerSeg}</div>
-    ${rotRow}
-    <div class="frow"><label>Icon</label>${icons}</div>
+    <div class="frow"><label>Who</label>${ownerToggle(p+'.owner', c.owner)}</div>
   </div>`;
 }
 
@@ -519,7 +486,6 @@ function renderSettingsBody(){
 
     <div class="sec secTop">Chores</div>
     ${(S.chores||[]).map(choreCard).join('')}
-    <button class="addChore" data-act="cadd">+ Add chore</button>
 
     <div class="secCard">
       <div class="sec">Display</div>
@@ -584,34 +550,16 @@ export function initSettings(){
       return;
     }
     if(act==='accent'){ S.accent = b.dataset.v; commitSettings(); }
-    else if(act==='flip'){ setPath(S, b.dataset.path, otherOf(getPath(S, b.dataset.path))); commitSettings(); }
-    // ---- 집안일 카드 ----
+    // 주기를 바꾸면 그 주기가 요구하는 필드(요일 / 시작일)를 채워 준다
     else if(act==='freq'){
       const c = S.chores[+b.dataset.i];
       if(c && c.freq !== b.dataset.v){ c.freq = b.dataset.v; fillFreq(c); commitSettings(); }
-    }
-    else if(act==='cflip'){ const c = S.chores[+b.dataset.i]; if(c){ flipRotation(c); commitSettings(); } }
-    else if(act==='cdel'){
-      const c = S.chores[+b.dataset.i];
-      // 완료 기록(date|chore_id)은 지우지 않는다 — 되살리면 과거 체크가 그대로 보인다
-      if(c && confirm(`Remove "${c.name}" from the board?`)){ S.chores.splice(+b.dataset.i, 1); commitSettings(); }
-    }
-    else if(act==='cadd'){
-      S.chores.push(fillFreq({
-        id:'c' + Date.now().toString(36), name:'New chore', icon:'broom',
-        freq:'weekly', days:[new Date().getDay()], owner:'A',
-      }));
-      commitSettings();
-      const cards = $('#dlg').querySelectorAll('.chCard .chName');
-      const last = cards[cards.length-1];
-      if(last){ last.focus(); last.select(); }        // 바로 이름부터 치게
     }
     else if(act==='seg'){
       let v = b.dataset.v;
       if(b.dataset.num) v = Number(v);
       if(b.dataset.bool) v = v==='1';
       setPath(S, b.dataset.k, v);
-      if(b.dataset.k.endsWith('.owner')) fillFreq(getPath(S, b.dataset.k.slice(0, -6)));  // rotate → first 채움
       commitSettings();
     }
     else if(act==='days'){
@@ -627,20 +575,8 @@ export function initSettings(){
 
   $('#dlg').addEventListener('change', e=>{
     const el = e.target;
-    if(el.dataset && el.dataset.sel){ setPath(S, el.dataset.sel, Number(el.value)); commitSettings(); }
-    else if(el.dataset && el.dataset.txt){ pushSettingsCloud(); }   // 이름 편집 끝 → 클라우드에도 반영
-  });
-
-  // 집안일 이름은 한 글자마다 반영하되 설정창은 다시 그리지 않는다 (커서가 튀므로)
-  $('#dlg').addEventListener('input', e=>{
-    const el = e.target;
-    if(!el.dataset || !el.dataset.txt) return;
-    setPath(S, el.dataset.txt, el.value);
-    if(el.dataset.txt.endsWith('.name')){
-      const c = getPath(S, el.dataset.txt.slice(0, -5));
-      delete c.short;                     // 달력 축약 라벨은 새 이름에서 다시 만든다
-    }
-    saveSettings();
-    renderAll();
+    if(!el.dataset) return;
+    if(el.dataset.sel){ setPath(S, el.dataset.sel, Number(el.value)); commitSettings(); }
+    else if(el.dataset.selstr && el.value){ setPath(S, el.dataset.selstr, el.value); commitSettings(); }
   });
 }

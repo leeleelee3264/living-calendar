@@ -1,6 +1,5 @@
 // 도메인 로직: 날짜 계산·포맷 + 스케줄 엔진.
-// 로테이션은 S.anchor 가 포함된 주를 기준으로 센다.
-import { DAY, WD, WD_FULL, MON_SHORT } from './data.js';
+import { DAY, WD_FULL, MON_SHORT, EVENTS, START } from './data.js';
 import { S, OVR, DONE } from './storage.js';
 
 /* ---------- 날짜 ---------- */
@@ -11,29 +10,8 @@ export function ymd(d){
 }
 export function parseYMD(s){ const p = s.split('-').map(Number); return new Date(p[0], p[1]-1, p[2]); }
 
-export function mondayOf(d){
-  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  x.setDate(x.getDate() - (x.getDay()+6)%7);
-  return x;
-}
-export function mod(n, m){ return ((n%m)+m)%m; }
 
-export function weekIndex(d){ return Math.round((mondayOf(d) - mondayOf(parseYMD(S.anchor))) / (7*DAY)); }
-export function monthIndex(d){
-  const a = parseYMD(S.anchor);
-  return (d.getFullYear()-a.getFullYear())*12 + (d.getMonth()-a.getMonth());
-}
-export function nthWeekday(y, m, nth, wd){
-  const first = new Date(y, m, 1);
-  return new Date(y, m, 1 + mod(wd - first.getDay(), 7) + (nth-1)*7);
-}
 
-// firstId 부터 시작해 번갈아: idx 번째 차례의 담당(A/B)
-export function pick(firstId, idx){
-  const order = firstId==='A' ? ['A','B'] : ['B','A'];
-  return order[mod(idx, 2)];
-}
-export function otherOf(w){ return w==='A' ? 'B' : 'A'; }
 
 // start~end 시간 구간 포함 여부 (자정을 넘어가는 구간도 처리)
 export function inHourRange(h, start, end){
@@ -43,16 +21,8 @@ export function inHourRange(h, start, end){
 export function fmtDate(d){
   return `${WD_FULL[d.getDay()]}, ${MON_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
-export function fmtShort(d){
-  return `${MON_SHORT[d.getMonth()]} ${d.getDate()} (${WD[d.getDay()]})`;
-}
 
 export function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate()+n); return x; }
-export function nextWeekdayDate(wd){
-  const n = new Date();
-  const d = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-  return addDays(d, mod(wd - d.getDay(), 7));
-}
 /* ---------- 스케줄 엔진 ----------
    집안일은 전부 설정(S.chores)에 들어 있고, 주기 타입 4개만 여기서 해석한다.
    집안일마다 특수 분기를 두지 않으므로 설정에서 추가한 집안일도 똑같이 굴러간다. */
@@ -60,45 +30,53 @@ export function nextWeekdayDate(wd){
 // 설정에서 집안일 정의 찾기 (이름·아이콘·주기)
 export function choreDef(id){ return (S.chores || []).find(c => c.id === id); }
 
-// 이 집안일이 그날 해당되는가
+// 같이 살기 시작한 날 이전인가 (그 앞은 달력에 아무것도 안 띄운다)
+export function beforeStart(d){ return d < parseYMD(START); }
+
+// 이 집안일이 그날 해당되는가.
+// 격주·매월은 "시작 날짜" 하나로 정해진다 — 그 날짜의 요일(격주) / 그 날짜의 일(매월)이 규칙.
 export function occursOn(c, d){
-  const wd = d.getDay();
-  if(c.freq === 'daily')    return true;
-  if(c.freq === 'weekly')   return (c.days || []).includes(wd);
-  if(c.freq === 'biweekly') return wd === c.day && mod(weekIndex(d), 2) === c.startWeek;
-  if(c.freq === 'monthly')  return ymd(d) === ymd(nthWeekday(d.getFullYear(), d.getMonth(), c.nth, c.day));
+  if(c.freq === 'daily')  return true;
+  if(c.freq === 'weekly') return (c.days || []).includes(d.getDay());
+  if(!c.start) return false;
+  const s = parseYMD(c.start);
+  if(d < s) return false;
+  if(c.freq === 'biweekly') return Math.round((d - s) / DAY) % 14 === 0;
+  if(c.freq === 'monthly'){
+    const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+    return d.getDate() === Math.min(s.getDate(), last);   // 31일 시작 → 짧은 달은 말일
+  }
   return false;
 }
 
-// 번갈아 하는 집안일이 "몇 번째 차례"인가 (주기마다 세는 단위가 다르다)
-export function occIndex(c, d){
-  if(c.freq === 'monthly')  return monthIndex(d);
-  if(c.freq === 'biweekly') return Math.floor((weekIndex(d) - c.startWeek) / 2);
-  if(c.freq === 'weekly')   return weekIndex(d);
-  return Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - parseYMD(S.anchor)) / DAY);
-}
 
-export function ownerOn(c, d){
-  return c.owner === 'rotate' ? pick(c.first || 'A', occIndex(c, d)) : c.owner;
-}
-
-// 오늘(또는 from) 이후 이 집안일의 다음 날짜 — 설정 화면의 "다음 차례" 표시용
-export function nextOccurrence(c, from){
-  const n = from || new Date();
-  let d = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-  for(let i=0; i<400; i++){ if(occursOn(c, d)) return d; d = addDays(d, 1); }
-  return null;
-}
-
-// 사람이 읽는 주기 문구 (체크리스트 부제)
+// 사람이 읽는 주기 문구 (체크리스트 부제 · 설정 힌트)
 export function freqLabel(c){
   if(c.freq === 'weekly'){
     const n = (c.days || []).length;
     return n === 7 ? 'Every day' : n === 1 ? 'Weekly' : `${n}×/week`;
   }
-  if(c.freq === 'biweekly') return 'Biweekly';
-  if(c.freq === 'monthly')  return 'Monthly';
+  if(c.freq === 'biweekly'){
+    const s = c.start ? parseYMD(c.start) : null;
+    return s ? `Every 2 weeks on ${WD_FULL[s.getDay()]}` : 'Every 2 weeks';
+  }
+  if(c.freq === 'monthly'){
+    const s = c.start ? parseYMD(c.start) : null;
+    return s ? `Monthly on the ${ordinal(s.getDate())}` : 'Monthly';
+  }
   return 'Daily';
+}
+export function ordinal(n){
+  const t = n % 100;
+  if(t >= 11 && t <= 13) return n + 'th';
+  return n + ({1:'st', 2:'nd', 3:'rd'}[n % 10] || 'th');
+}
+
+/* ---------- 매달 같은 날 돌아오는 돈 일정 (집안일 아님) ---------- */
+export function eventsFor(d){
+  if(beforeStart(d)) return [];
+  const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  return EVENTS.filter(e => d.getDate() === Math.min(e.day, last));
 }
 
 // 달력 셀에 들어갈 짧은 라벨 — 따로 정해두지 않았으면 이름 첫 단어에서 만든다
@@ -108,14 +86,14 @@ export function shortOf(c){
 
 /* 특정 날짜의 집안일 목록 + 담당 */
 export function choresFor(d){
+  if(beforeStart(d)) return [];
   const ds = ymd(d);
   const list = [];
   for(const c of (S.chores || [])){
     if(!occursOn(c, d)) continue;
-    const who = ownerOn(c, d);
     // 그날만 담당 스왑(탭) 오버라이드 적용 · base 는 원래 담당 보존
     const o = OVR[ds+'|'+c.id];
-    list.push({id:c.id, base:who, who: (o && who !== 'both') ? o : who});
+    list.push({id:c.id, base:c.owner, who: o || c.owner});
   }
   return list;
 }
