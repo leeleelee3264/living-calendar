@@ -37,7 +37,8 @@ export const FREQS = [
 export const START = '2026-07-01';
 
 // 매달 같은 날 돌아오는 돈 일정 — 집안일이 아니라 별도 줄로 보여준다
+// short 는 달력 셀의 날짜 옆 한 칸에 들어가므로 아주 짧아야 한다 (셀 폭 ~68px)
 export const EVENTS = [
-  {day:12, short:'Shared account', name:'Move rent + expenses into the shared account'},
-  {day:28, short:'Rent day',       name:'Rent is paid today'},
+  {day:12, short:'Save', name:'Move rent + expenses into the shared account'},
+  {day:28, short:'Rent', name:'Rent is paid today'},
 ];

@@ -177,7 +177,8 @@ button{font-family:inherit;}
   pointer-events:none; user-select:none; z-index:1;
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));}
 .wow.lg{position:static; font-size:14px; filter:none;}   /* 범례용 */
-.dn{font-family:var(--num); font-size:14px; font-weight:600; color:var(--dnInk); line-height:1;}
+.dnRow{display:flex; align-items:center; gap:5px; min-width:0;}
+.dn{font-family:var(--num); font-size:14px; font-weight:600; color:var(--dnInk); line-height:1; flex:none;}
 .dn.sun{color:var(--sun);} .dn.sat{color:var(--sat);}
 .cell.today .dn{color:var(--ac); font-weight:700;}
 /* 미니 라벨: 1~2개면 한 줄에 하나(가독성), 3개 이상이면 한 줄에 2개(.dense)로 접어 세로 높이 절반 → 안 잘림 */
@@ -192,12 +193,12 @@ button{font-family:inherit;}
   border-radius:5px; white-space:nowrap; text-align:center; overflow:hidden; text-overflow:ellipsis; min-width:0;}
 .mini.more{color:var(--dim); background:var(--line07);}
 
-/* 돈 일정(12일 입금 · 28일 월세) — 집안일 알약과 섞이지 않게 한 줄 띄우고 구분선 위에 */
-.evts{margin-top:5px; padding-top:4px; border-top:1px dashed var(--line2);}
-.evt{display:block; font-size:9.5px; font-weight:700; letter-spacing:-.2px; line-height:1.35;
-  padding:1.5px 4px; border-radius:5px; text-align:center; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; color:var(--ac); background:var(--acSoft);}
-.evt.lg{display:inline-block; font-size:10px; padding:1px 6px;}
+/* 돈 일정(12일 입금 · 28일 월세) — 날짜 옆 한 칸. 집안일 알약과 줄이 완전히 분리된다 */
+.evt{flex:1 1 auto; min-width:0; font-size:9.5px; font-weight:700; letter-spacing:-.2px;
+  line-height:1.4; padding:1px 5px; border-radius:5px; text-align:center; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; color:var(--ac); background:var(--acSoft);
+  border:1px solid var(--ac);}
+.evt.lg{flex:none; font-size:10px; padding:1px 7px;}
 .evtRow{display:flex; align-items:center; gap:9px; padding:9px 0 4px;
   font-size:13.5px; color:var(--sub); font-weight:600;}
 .evtRow .evt{flex:none; display:inline-block; font-size:11px; padding:2px 8px;}

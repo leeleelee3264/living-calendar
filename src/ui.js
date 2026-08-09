@@ -194,6 +194,7 @@ export function renderCalendar(){
     const wd = d.getDay();
     // 매일 하는 건 달력에 안 띄운다 (매일 뜨면 정보가 아님)
     const items = choresFor(d).filter(c=>{ const def = choreDef(c.id); return def && def.freq!=='daily'; });
+    const evs = eventsFor(d);
     const MAXMINI = 4;                       // 넘치면 마지막을 +N 으로 (셀 높이 넘침 방지)
     const shown = items.length > MAXMINI ? items.slice(0, MAXMINI-1) : items;
     let minis = shown.map(c=>{
@@ -208,14 +209,13 @@ export function renderCalendar(){
     const perfect = allDone(d);
     const cls = [ds===todayStr ? 'today' : '', perfect ? 'perfect' : ''].join(' ').trim();
     const party = perfect ? `<span class="wow" aria-label="All done">${PARTY}</span>` : '';
-    // 돈 일정(12일 입금 · 28일 월세)은 집안일과 섞이지 않게 한 줄 띄워서 아래에 붙인다
-    const evs = eventsFor(d);
-    const evtHTML = evs.length
-      ? `<div class="evts">${evs.map(e=>`<span class="evt">${esc(e.short)}</span>`).join('')}</div>` : '';
+    // 돈 일정(12일 입금 · 28일 월세)은 집안일 알약과 섞이지 않게 날짜 옆 한 칸에 둔다.
+    // 집안일 위/아래에 줄로 넣으면 셀 높이가 고정이라 할일 많은 날 둘 중 하나가 잘린다
+    const evtHTML = evs.map(e=>`<span class="evt">${esc(e.short)}</span>`).join('');
     html += `<div class="cell ${cls}" onclick="openSheet('${ds}')">
       ${party}
-      <div class="dn ${wd===0?'sun':wd===6?'sat':''}">${day}</div>
-      <div class="minis${dense}">${minis}</div>${evtHTML}</div>`;
+      <div class="dnRow"><span class="dn ${wd===0?'sun':wd===6?'sat':''}">${day}</span>${evtHTML}</div>
+      <div class="minis${dense}">${minis}</div></div>`;
   }
   $('#calGrid').innerHTML = html;
   // 같이 살기 전(2026-07 이전)으로는 못 넘어간다
@@ -225,7 +225,7 @@ export function renderCalendar(){
   $('#calLegend').innerHTML =
     `<span class="li"><span class="dot" style="background:${S.people.A.color}"></span>${esc(S.people.A.name)}</span>`
     + `<span class="li"><span class="dot" style="background:${S.people.B.color}"></span>${esc(S.people.B.name)}</span>`
-    + `<span class="li"><span class="evt lg">Money</span>12th · 28th</span>`
+    + `<span class="li"><span class="evt lg">Save</span>12th<span class="evt lg">Rent</span>28th</span>`
     + `<span class="li"><span class="wow lg">${PARTY}</span>All done</span>`
     + `<span class="note">Daily chores hidden · tap a date for the full list</span>`;
 }
@@ -482,7 +482,7 @@ function renderSettingsBody(){
 
   $('#dlg').innerHTML = `<div class="dlgIn">
     <h2>${svgIcon('gear',19)} Settings</h2>
-    <p class="subNote">Changes apply instantly · add, remove and re-schedule chores here</p>
+    <p class="subNote">Changes apply instantly · set how often each chore repeats and who does it</p>
 
     <div class="sec secTop">Chores</div>
     ${(S.chores||[]).map(choreCard).join('')}
