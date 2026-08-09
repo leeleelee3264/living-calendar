@@ -43,10 +43,19 @@ export function occursOn(c, d){
   if(d < s) return false;
   if(c.freq === 'biweekly') return Math.round((d - s) / DAY) % 14 === 0;
   if(c.freq === 'monthly'){
-    const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
-    return d.getDate() === Math.min(s.getDate(), last);   // 31일 시작 → 짧은 달은 말일
+    // 고른 날짜의 "그 달 몇 번째 무슨 요일"이 규칙 — 7/5(첫째 일)를 고르면 매달 첫째 일요일
+    if(d.getDay() !== s.getDay()) return false;
+    const nth = nthOfMonth(s);
+    if(nth >= 5) return isLastWeekdayOfMonth(d);   // 다섯째 주는 매달 없으므로 "마지막 O요일"로
+    return nthOfMonth(d) === nth;
   }
   return false;
+}
+// 그 달에서 몇 번째 해당 요일인가 (1~5)
+export function nthOfMonth(d){ return Math.ceil(d.getDate() / 7); }
+export function isLastWeekdayOfMonth(d){
+  const lastDay = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  return d.getDate() + 7 > lastDay;
 }
 
 
@@ -62,7 +71,9 @@ export function freqLabel(c){
   }
   if(c.freq === 'monthly'){
     const s = c.start ? parseYMD(c.start) : null;
-    return s ? `Monthly on the ${ordinal(s.getDate())}` : 'Monthly';
+    if(!s) return 'Monthly';
+    const nth = nthOfMonth(s) >= 5 ? 'last' : ordinal(nthOfMonth(s));
+    return `Monthly on the ${nth} ${WD_FULL[s.getDay()]}`;
   }
   return 'Daily';
 }
