@@ -16,7 +16,7 @@ export const CHORES = {
   vacuum:       {icon:'broom',    name:'Vacuum',               freq:'3×/week',                short:'Vac'},
   laundry:      {icon:'basket',   name:'Laundry',              freq:'3×/week · wash to fold', short:'Laundry'},
   mop:          {icon:'droplets', name:'Mopping',              freq:'Weekly',                 short:'Mop'},
-  bathroomClean:{icon:'toilet',   name:'Clean bathroom',       freq:'Biweekly · alternating', short:'Bath'},
-  bedding:      {icon:'bed',      name:'Change · wash bedding',freq:'Biweekly · together',    short:'Bedding'},
+  bathroomClean:{icon:'toilet',   name:'Clean bathroom',       freq:'Biweekly',               short:'Bath'},
+  bedding:      {icon:'bed',      name:'Change · wash bedding',freq:'Biweekly',               short:'Bedding'},
   fridge:       {icon:'fridge',   name:'Clean fridge',         freq:'Monthly · alternating',  short:'Fridge'},
 };

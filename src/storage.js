@@ -13,8 +13,8 @@ export const DEFAULTS = {
   vacuum:{days:[2,4,6], owner:'A'},
   laundry:{days:[2,4,6], owner:'B'},
   mop:{day:0, mode:'rotate', first:'B'},
-  bathroomClean:{day:6, startWeek:0, first:'A'},
-  bedding:{day:6, startWeek:1},
+  bathroomClean:{day:6, startWeek:0, owner:'A'},   // 고정 담당 (번갈아 하기 폐지)
+  bedding:{day:6, startWeek:1, owner:'B'},         // 고정 담당 (같이 하기 폐지)
   fridge:{nth:1, day:0, first:'B'},
 };
 
@@ -28,8 +28,11 @@ function deepMerge(base, over){
   return base;
 }
 
-// 구 스키마(쓰레기·청소기가 daily 였던 시절) → 주 3회(요일 지정)로 이관.
-// raw 에 새 키가 없으면 "빨래와 같은 날"로 맞추고 담당은 예전 daily 값을 물려받는다.
+// 구 스키마 이관.
+// ① 쓰레기·청소기가 daily 였던 시절 → 주 3회(요일 지정). 새 키가 없으면 "빨래와 같은 날"로
+//    맞추고 담당은 예전 daily 값을 물려받는다.
+// ② 화장실·침구가 "번갈아(first)" / "같이(both)" 였던 시절 → 고정 담당(owner).
+//    owner 는 DEFAULTS 에서 채워지므로 여기선 안 쓰이는 잔재만 지운다.
 // 사용자가 설정을 한 번이라도 바꾸면 새 키가 저장/업로드되어 이 분기는 더 안 탄다.
 function migrate(s, raw){
   const old = s.daily;
@@ -37,6 +40,7 @@ function migrate(s, raw){
   if(raw && !raw.vacuum)       s.vacuum       = {days:[...s.laundry.days], owner: old.vacuum       || s.vacuum.owner};
   delete s.daily.trashRecycle;   // 더는 안 읽히는 잔재
   delete s.daily.vacuum;
+  delete s.bathroomClean.first;  // 번갈아 하던 시절의 시작 담당
   return s;
 }
 

@@ -53,10 +53,6 @@ export function nextWeekdayDate(wd){
   const d = new Date(n.getFullYear(), n.getMonth(), n.getDate());
   return addDays(d, mod(wd - d.getDay(), 7));
 }
-export function nextBiweekly(cfg){
-  const d1 = nextWeekdayDate(cfg.day);
-  return mod(weekIndex(d1),2)===cfg.startWeek ? d1 : addDays(d1, 7);
-}
 export function nextMonthly(cfg){
   const n = new Date();
   const t0 = new Date(n.getFullYear(), n.getMonth(), n.getDate());
@@ -82,12 +78,11 @@ export function choresFor(d){
     const who = S.mop.mode==='fixed' ? S.mop.first : pick(S.mop.first, wi);
     list.push({id:'mop', who});
   }
+  // 화장실·침구는 고정 담당 (예전엔 번갈아 / 같이 했지만 2026-08 부터 고정)
   const bc = S.bathroomClean;
-  if(wd === bc.day && mod(wi,2) === bc.startWeek){
-    list.push({id:'bathroomClean', who:pick(bc.first, Math.floor((wi - bc.startWeek)/2))});
-  }
+  if(wd === bc.day && mod(wi,2) === bc.startWeek) list.push({id:'bathroomClean', who:bc.owner});
   const bd = S.bedding;
-  if(wd === bd.day && mod(wi,2) === bd.startWeek) list.push({id:'bedding', who:'both'});
+  if(wd === bd.day && mod(wi,2) === bd.startWeek) list.push({id:'bedding', who:bd.owner});
 
   const ds = ymd(d);
   const fr = S.fridge;

@@ -5,7 +5,7 @@ import { S, DONE, saveSettings, resetSettings } from './storage.js';
 import {
   ymd, parseYMD, fmtDate, fmtShort, inHourRange,
   pick, weekIndex, monthIndex, mod, otherOf,
-  addDays, nextWeekdayDate, nextBiweekly, nextMonthly, choresFor,
+  addDays, nextWeekdayDate, nextMonthly, choresFor,
   allDone, currentStreak,
 } from './core.js';
 import { wx24, wxWeek, wxInfo, repWeather } from './weather.js';
@@ -418,11 +418,6 @@ function flipDerived(kind){
     const wi = weekIndex(nextWeekdayDate(S.mop.day));
     const nw = otherOf(pick(S.mop.first, wi));
     S.mop.first = mod(wi,2)===0 ? nw : otherOf(nw);
-  }else if(kind==='bath'){
-    const cfg = S.bathroomClean;
-    const occ = Math.floor((weekIndex(nextBiweekly(cfg)) - cfg.startWeek)/2);
-    const nw = otherOf(pick(cfg.first, occ));
-    cfg.first = mod(occ,2)===0 ? nw : otherOf(nw);
   }else{
     const cfg = S.fridge;
     const mi = monthIndex(nextMonthly(cfg));
@@ -468,8 +463,6 @@ function renderSettingsBody(){
   const mopNext = nextWeekdayDate(S.mop.day);
   const mopWho = S.mop.mode==='fixed' ? S.mop.first : pick(S.mop.first, weekIndex(mopNext));
   const bath = S.bathroomClean;
-  const bathNext = nextBiweekly(bath);
-  const bathWho = pick(bath.first, Math.floor((weekIndex(bathNext) - bath.startWeek)/2));
   const bathC1 = nextWeekdayDate(bath.day), bathC2 = addDays(bathC1, 7);
   const bedC1 = nextWeekdayDate(S.bedding.day), bedC2 = addDays(bedC1, 7);
   const frNext = nextMonthly(S.fridge), frWho = pick(S.fridge.first, monthIndex(frNext));
@@ -526,18 +519,20 @@ function renderSettingsBody(){
           [{v:mod(weekIndex(bathC1),2), label:fmtShort(bathC1)},
            {v:mod(weekIndex(bathC2),2), label:fmtShort(bathC2)}],
           bath.startWeek, 'data-num="1"')}</div>
-      <div class="frow"><label>Who · ${fmtShort(bathNext)}</label>
-        ${pBtn(bathWho, `data-act="flipd" data-kind="bath"`)}</div>
+      <div class="frow"><label>Who</label>
+        ${pBtn(bath.owner, `data-act="flip" data-path="bathroomClean.owner"`)}</div>
     </div>
 
     <div class="secCard">
-      <div class="sec">Bedding (biweekly · both)</div>
+      <div class="sec">Bedding (biweekly)</div>
       <div class="frow"><label>${svgIcon('bed',16)}Day</label>${dSelFull('bedding.day', S.bedding.day)}</div>
       <div class="frow"><label>Next</label>
         ${segBtns('bedding.startWeek',
           [{v:mod(weekIndex(bedC1),2), label:fmtShort(bedC1)},
            {v:mod(weekIndex(bedC2),2), label:fmtShort(bedC2)}],
           S.bedding.startWeek, 'data-num="1"')}</div>
+      <div class="frow"><label>Who</label>
+        ${pBtn(S.bedding.owner, `data-act="flip" data-path="bedding.owner"`)}</div>
     </div>
 
     <div class="secCard">
