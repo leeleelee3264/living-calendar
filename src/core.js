@@ -53,47 +53,69 @@ export function nextWeekdayDate(wd){
   const d = new Date(n.getFullYear(), n.getMonth(), n.getDate());
   return addDays(d, mod(wd - d.getDay(), 7));
 }
-export function nextMonthly(cfg){
-  const n = new Date();
-  const t0 = new Date(n.getFullYear(), n.getMonth(), n.getDate());
-  let d = nthWeekday(t0.getFullYear(), t0.getMonth(), cfg.nth, cfg.day);
-  if(d < t0) d = nthWeekday(t0.getFullYear(), t0.getMonth()+1, cfg.nth, cfg.day);
-  return d;
+/* ---------- 스케줄 엔진 ----------
+   집안일은 전부 설정(S.chores)에 들어 있고, 주기 타입 4개만 여기서 해석한다.
+   집안일마다 특수 분기를 두지 않으므로 설정에서 추가한 집안일도 똑같이 굴러간다. */
+
+// 설정에서 집안일 정의 찾기 (이름·아이콘·주기)
+export function choreDef(id){ return (S.chores || []).find(c => c.id === id); }
+
+// 이 집안일이 그날 해당되는가
+export function occursOn(c, d){
+  const wd = d.getDay();
+  if(c.freq === 'daily')    return true;
+  if(c.freq === 'weekly')   return (c.days || []).includes(wd);
+  if(c.freq === 'biweekly') return wd === c.day && mod(weekIndex(d), 2) === c.startWeek;
+  if(c.freq === 'monthly')  return ymd(d) === ymd(nthWeekday(d.getFullYear(), d.getMonth(), c.nth, c.day));
+  return false;
 }
 
-/* ---------- 스케줄 엔진: 특정 날짜의 집안일 목록 + 담당 ---------- */
-export function choresFor(d){
-  const list = [];
-  const wd = d.getDay();
-  const wi = weekIndex(d);
+// 번갈아 하는 집안일이 "몇 번째 차례"인가 (주기마다 세는 단위가 다르다)
+export function occIndex(c, d){
+  if(c.freq === 'monthly')  return monthIndex(d);
+  if(c.freq === 'biweekly') return Math.floor((weekIndex(d) - c.startWeek) / 2);
+  if(c.freq === 'weekly')   return weekIndex(d);
+  return Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - parseYMD(S.anchor)) / DAY);
+}
 
-  list.push({id:'trashBathroom', who:S.daily.trashBathroom});
-  if(S.trashRecycle.days.includes(wd)) list.push({id:'trashRecycle', who:S.trashRecycle.owner});
-  if(S.vacuum.days.includes(wd))       list.push({id:'vacuum',       who:S.vacuum.owner});
-  list.push({id:'makeBed',       who:S.daily.makeBed});
+export function ownerOn(c, d){
+  return c.owner === 'rotate' ? pick(c.first || 'A', occIndex(c, d)) : c.owner;
+}
 
-  if(S.laundry.days.includes(wd)) list.push({id:'laundry', who:S.laundry.owner});
+// 오늘(또는 from) 이후 이 집안일의 다음 날짜 — 설정 화면의 "다음 차례" 표시용
+export function nextOccurrence(c, from){
+  const n = from || new Date();
+  let d = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  for(let i=0; i<400; i++){ if(occursOn(c, d)) return d; d = addDays(d, 1); }
+  return null;
+}
 
-  if(wd === S.mop.day){
-    const who = S.mop.mode==='fixed' ? S.mop.first : pick(S.mop.first, wi);
-    list.push({id:'mop', who});
+// 사람이 읽는 주기 문구 (체크리스트 부제)
+export function freqLabel(c){
+  if(c.freq === 'weekly'){
+    const n = (c.days || []).length;
+    return n === 7 ? 'Every day' : n === 1 ? 'Weekly' : `${n}×/week`;
   }
-  // 화장실·침구는 고정 담당 (예전엔 번갈아 / 같이 했지만 2026-08 부터 고정)
-  const bc = S.bathroomClean;
-  if(wd === bc.day && mod(wi,2) === bc.startWeek) list.push({id:'bathroomClean', who:bc.owner});
-  const bd = S.bedding;
-  if(wd === bd.day && mod(wi,2) === bd.startWeek) list.push({id:'bedding', who:bd.owner});
+  if(c.freq === 'biweekly') return 'Biweekly';
+  if(c.freq === 'monthly')  return 'Monthly';
+  return 'Daily';
+}
 
+// 달력 셀에 들어갈 짧은 라벨 — 따로 정해두지 않았으면 이름 첫 단어에서 만든다
+export function shortOf(c){
+  return c.short || (c.name || '').split(/[\s·]+/)[0].slice(0, 7) || '?';
+}
+
+/* 특정 날짜의 집안일 목록 + 담당 */
+export function choresFor(d){
   const ds = ymd(d);
-  const fr = S.fridge;
-  if(ds === ymd(nthWeekday(d.getFullYear(), d.getMonth(), fr.nth, fr.day)))
-    list.push({id:'fridge', who:pick(fr.first, monthIndex(d))});
-
-  // 그날만 담당 스왑(탭) 오버라이드 적용 · base 는 원래 담당 보존
-  for(const c of list){
-    c.base = c.who;
+  const list = [];
+  for(const c of (S.chores || [])){
+    if(!occursOn(c, d)) continue;
+    const who = ownerOn(c, d);
+    // 그날만 담당 스왑(탭) 오버라이드 적용 · base 는 원래 담당 보존
     const o = OVR[ds+'|'+c.id];
-    if(o && c.who !== 'both') c.who = o;
+    list.push({id:c.id, base:who, who: (o && who !== 'both') ? o : who});
   }
   return list;
 }

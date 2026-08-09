@@ -366,6 +366,32 @@ dialog::backdrop{background:var(--backdrop);}
 .dayb.on{background:var(--acSoft); border-color:var(--ac); color:var(--ink); font-weight:700;}
 button.chip{font-size:13px; font-weight:700;}
 
+/* 집안일 카드 (설정) — 모든 집안일이 같은 모양이라 카드 하나로 통일 */
+.secTop{margin-top:16px;}
+.chCard{padding-top:11px;}
+.chHead{display:flex; align-items:center; gap:9px; margin-bottom:4px;}
+.chHead .chIco .msym{color:var(--cicon);}
+.chName{flex:1; min-width:0; border:1px solid transparent; border-radius:9px;
+  padding:6px 8px; font-size:15px; font-weight:700; font-family:inherit;
+  background:transparent; color:var(--ink);}
+.chName:hover{border-color:var(--line2);}
+.chName:focus{border-color:var(--ac); background:var(--field); outline:none;}
+.chDel{border:none; background:transparent; color:var(--dim); cursor:pointer;
+  padding:5px; border-radius:8px; display:flex; flex:none;}
+.chDel:hover{color:var(--ink); background:var(--field);}
+/* 아이콘은 한 줄 가로 스크롤 — 카드마다 여러 줄이 되면 설정창이 끝없이 길어진다 */
+.icoPick{display:flex; gap:5px; flex-wrap:nowrap; overflow-x:auto; max-width:250px;
+  padding-bottom:2px; scrollbar-width:none;}
+.icoPick::-webkit-scrollbar{display:none;}
+.icob{flex:none;}
+.icob{border:1px solid var(--line2); background:transparent; border-radius:8px;
+  padding:4px 5px; cursor:pointer; display:flex; color:var(--sub);}
+.icob.on{background:var(--acSoft); border-color:var(--ac); color:var(--ink);}
+.addChore{width:100%; margin-top:12px; padding:12px; border-radius:14px;
+  border:1px dashed var(--line2); background:transparent; color:var(--sub);
+  font-size:14px; font-weight:700; font-family:inherit; cursor:pointer;}
+.addChore:hover{border-color:var(--ac); color:var(--ink);}
+
 .swatches{display:flex; gap:9px;}
 .sw{width:30px; height:30px; border-radius:10px; border:none; padding:0; cursor:pointer;}
 .sw.on{outline:2px solid var(--swOutline); outline-offset:2px;}

@@ -1,11 +1,12 @@
 // 뷰 계층: 화면 렌더링 + 설정 다이얼로그. 상태를 읽어 DOM 을 그린다.
 // (이벤트 배선·상호작용은 main.js)
-import { CHORES, NTH, WD, WD_FULL, MON_SHORT, MON_FULL } from './data.js';
-import { S, DONE, saveSettings, resetSettings } from './storage.js';
+import { FREQS, CHORE_ICONS, NTH, WD, WD_FULL, MON_SHORT, MON_FULL } from './data.js';
+import { S, DONE, saveSettings, resetSettings, fillFreq } from './storage.js';
 import {
   ymd, parseYMD, fmtDate, fmtShort, inHourRange,
-  pick, weekIndex, monthIndex, mod, otherOf,
-  addDays, nextWeekdayDate, nextMonthly, choresFor,
+  pick, weekIndex, mod, otherOf,
+  addDays, nextWeekdayDate, choresFor,
+  choreDef, occIndex, nextOccurrence, freqLabel, shortOf,
   allDone, currentStreak,
 } from './core.js';
 import { wx24, wxWeek, wxInfo, repWeather } from './weather.js';
@@ -27,6 +28,9 @@ const ICON_LIG = {
   // 집안일
   trash:'delete', recycle:'recycling', broom:'cleaning_services', bed:'bed',
   basket:'local_laundry_service', droplets:'mop', toilet:'wc', fridge:'kitchen',
+  dishes:'dishwasher_gen', cart:'shopping_cart', plant:'potted_plant', pets:'pets',
+  iron:'iron', window:'window', tools:'handyman', soap:'soap',
+  close:'close',
   // UI
   coins:'savings', gear:'settings', expand:'fullscreen', sun:'sunny', party:'celebration',
   // 날씨
@@ -93,7 +97,8 @@ export function applyTheme(){
 // 오늘 체크리스트 / 바텀시트의 한 줄 — 줄 탭 = 완료, 이름표 탭 = 담당 교체
 function choreRow(c, ds){
   const done = !!DONE[ds+'|'+c.id];
-  const ch = CHORES[c.id];
+  const ch = choreDef(c.id);
+  if(!ch) return '';
   const swapped = c.who !== c.base;
   const chip = c.who==='both'
     ? `<span class="chip"><span class="dot" style="background:var(--ac)"></span><span class="nm">Both</span></span>`
@@ -101,11 +106,11 @@ function choreRow(c, ds){
         return `<button class="chip tap" onclick="swapWho(event,'${ds}','${c.id}')">
           <span class="dot" style="background:${p.color}"></span>
           <span class="nm">${swapped?'↔ ':''}${esc(p.name)}</span></button>`; })();
-  const freq = ch.daily ? '' : `<small>${ch.freq}</small>`;   // "매일" 은 노이즈라 생략
+  const freq = ch.freq==='daily' ? '' : `<small>${freqLabel(ch)}</small>`;   // "매일" 은 노이즈라 생략
   return `<div class="chore ${done?'done':''}" onclick="toggleDone('${ds}','${c.id}')">
     <span class="cbox">${done?CHECK:''}</span>
     <span class="cicon">${svgIcon(ch.icon, 20)}</span>
-    <span class="cname"><span class="ttl">${ch.name}</span>${freq}</span>
+    <span class="cname"><span class="ttl">${esc(ch.name)}</span>${freq}</span>
     ${chip}
   </div>`;
 }
@@ -191,12 +196,13 @@ export function renderCalendar(){
     const d = new Date(view.y, view.m, day);
     const ds = ymd(d);
     const wd = d.getDay();
-    const items = choresFor(d).filter(c=>!CHORES[c.id].daily);
+    // 매일 하는 건 달력에 안 띄운다 (매일 뜨면 정보가 아님)
+    const items = choresFor(d).filter(c=>{ const def = choreDef(c.id); return def && def.freq!=='daily'; });
     const MAXMINI = 4;                       // 넘치면 마지막을 +N 으로 (셀 높이 넘침 방지)
     const shown = items.length > MAXMINI ? items.slice(0, MAXMINI-1) : items;
     let minis = shown.map(c=>{
       const col = c.who==='both' ? S.accent : S.people[c.who].color;
-      return `<span class="mini" style="color:${col};background:${col}2e">${CHORES[c.id].short}</span>`;
+      return `<span class="mini" style="color:${col};background:${col}2e">${esc(shortOf(choreDef(c.id)))}</span>`;
     }).join('');
     if(items.length > MAXMINI) minis += `<span class="mini more">+${items.length-(MAXMINI-1)}</span>`;
     const dense = items.length >= 3 ? ' dense' : '';   // 3개↑ → 한 줄에 2개
@@ -412,18 +418,14 @@ function setPath(o, p, v){
   x[ks[ks.length-1]] = v;
 }
 
-// 사용자가 "다음 차례 = OO" 를 탭하면 → 그 날짜가 OO 가 되도록 내부 first-owner 를 역산
-function flipDerived(kind){
-  if(kind==='mop'){
-    const wi = weekIndex(nextWeekdayDate(S.mop.day));
-    const nw = otherOf(pick(S.mop.first, wi));
-    S.mop.first = mod(wi,2)===0 ? nw : otherOf(nw);
-  }else{
-    const cfg = S.fridge;
-    const mi = monthIndex(nextMonthly(cfg));
-    const nw = otherOf(pick(cfg.first, mi));
-    cfg.first = mod(mi,2)===0 ? nw : otherOf(nw);
-  }
+// 번갈아 하는 집안일에서 사용자가 "다음 차례 = OO" 를 탭하면
+// → 그 날짜가 OO 가 되도록 내부 first(첫 차례 담당)를 역산한다. 주기 종류와 무관하게 동작.
+function flipRotation(c){
+  const nx = nextOccurrence(c);
+  if(!nx) return;
+  const occ = occIndex(c, nx);
+  const nw = otherOf(pick(c.first || 'A', occ));
+  c.first = mod(occ,2)===0 ? nw : otherOf(nw);
 }
 
 /* ---------- 폼 위젯 빌더 ---------- */
@@ -459,89 +461,65 @@ function hSel(key, val){
   return `<select data-sel="${key}">${opts}</select>`;
 }
 
+// 집안일 카드 1개 — 모든 집안일이 같은 모양이다: 이름 · 아이콘 · 주기 · (주기별 상세) · 담당
+function choreCard(c, i){
+  const p = `chores.${i}`;
+  const freqSeg = `<span class="seg">` + FREQS.map(f=>
+    `<button data-act="freq" data-i="${i}" data-v="${f.v}" class="${c.freq===f.v?'on':''}">${f.label}</button>`
+  ).join('') + `</span>`;
+
+  let detail = '';
+  if(c.freq==='weekly'){
+    detail = `<div class="frow"><label>Days</label>${dayBtns(p+'.days', c.days||[])}</div>`;
+  }else if(c.freq==='biweekly'){
+    // "다음은 언제냐"로 격주 주기를 고르게 한다 (내부 주 패리티를 그대로 노출하면 못 알아본다)
+    const c1 = nextWeekdayDate(c.day), c2 = addDays(c1, 7);
+    detail = `<div class="frow"><label>Day</label>${dSelFull(p+'.day', c.day)}</div>
+      <div class="frow"><label>Next</label>
+        ${segBtns(p+'.startWeek',
+          [{v:mod(weekIndex(c1),2), label:fmtShort(c1)}, {v:mod(weekIndex(c2),2), label:fmtShort(c2)}],
+          c.startWeek, 'data-num="1"')}</div>`;
+  }else if(c.freq==='monthly'){
+    detail = `<div class="frow"><label>Every</label>${nSelM(p+'.nth', c.nth)} ${dSelFull(p+'.day', c.day)}</div>`;
+  }
+
+  const ownerSeg = segBtns(p+'.owner', [
+    {v:'A', label:esc(S.people.A.name)}, {v:'B', label:esc(S.people.B.name)},
+    {v:'both', label:'Both'}, {v:'rotate', label:'Alternate'},
+  ], c.owner);
+  const nx = nextOccurrence(c);
+  const rotRow = (c.owner==='rotate' && nx)
+    ? `<div class="frow"><label>Next · ${fmtShort(nx)}</label>
+        ${pBtn(pick(c.first||'A', occIndex(c, nx)), `data-act="cflip" data-i="${i}"`)}</div>` : '';
+
+  const icons = `<span class="icoPick">` + CHORE_ICONS.map(ic=>
+    `<button class="icob ${c.icon===ic?'on':''}" data-act="seg" data-k="${p}.icon" data-v="${ic}"
+      aria-label="${ic}">${svgIcon(ic,17)}</button>`).join('') + `</span>`;
+
+  return `<div class="secCard chCard">
+    <div class="chHead">
+      <span class="chIco">${svgIcon(c.icon,18)}</span>
+      <input class="chName" type="text" value="${esc(c.name)}" data-txt="${p}.name" aria-label="Chore name">
+      <button class="chDel" data-act="cdel" data-i="${i}" aria-label="Remove chore">${svgIcon('close',18)}</button>
+    </div>
+    <div class="frow"><label>Repeat</label>${freqSeg}</div>
+    ${detail}
+    <div class="frow"><label>Who</label>${ownerSeg}</div>
+    ${rotRow}
+    <div class="frow"><label>Icon</label>${icons}</div>
+  </div>`;
+}
+
 function renderSettingsBody(){
-  const mopNext = nextWeekdayDate(S.mop.day);
-  const mopWho = S.mop.mode==='fixed' ? S.mop.first : pick(S.mop.first, weekIndex(mopNext));
-  const bath = S.bathroomClean;
-  const bathC1 = nextWeekdayDate(bath.day), bathC2 = addDays(bathC1, 7);
-  const bedC1 = nextWeekdayDate(S.bedding.day), bedC2 = addDays(bedC1, 7);
-  const frNext = nextMonthly(S.fridge), frWho = pick(S.fridge.first, monthIndex(frNext));
   const isFull = !!fsElement();
 
   $('#dlg').innerHTML = `<div class="dlgIn">
     <h2>${svgIcon('gear',19)} Settings</h2>
-    <p class="subNote">Changes apply instantly · tap a name to change who does it</p>
+    <p class="subNote">Changes apply instantly · add, remove and re-schedule chores here</p>
 
-    <div class="secCard">
-      <div class="sec">Daily</div>
-      <div class="frow"><label>${svgIcon('trash',16)}${CHORES.trashBathroom.name}</label>
-        ${pBtn(S.daily.trashBathroom, `data-act="flip" data-path="daily.trashBathroom"`)}</div>
-      <div class="frow"><label>${svgIcon('bed',16)}${CHORES.makeBed.name}</label>
-        ${segBtns('daily.makeBed', [{v:'both',label:'Both'},{v:'A',label:esc(S.people.A.name)},{v:'B',label:esc(S.people.B.name)}], S.daily.makeBed)}</div>
-    </div>
-
-    <div class="secCard">
-      <div class="sec">Trash · recycling (3×/week)</div>
-      <div class="frow"><label>${svgIcon('recycle',16)}Days</label>${dayBtns('trashRecycle.days', S.trashRecycle.days)}</div>
-      <div class="frow"><label>Who</label>
-        ${pBtn(S.trashRecycle.owner, `data-act="flip" data-path="trashRecycle.owner"`)}</div>
-    </div>
-
-    <div class="secCard">
-      <div class="sec">Vacuum (3×/week)</div>
-      <div class="frow"><label>${svgIcon('broom',16)}Days</label>${dayBtns('vacuum.days', S.vacuum.days)}</div>
-      <div class="frow"><label>Who</label>
-        ${pBtn(S.vacuum.owner, `data-act="flip" data-path="vacuum.owner"`)}</div>
-    </div>
-
-    <div class="secCard">
-      <div class="sec">Laundry (3×/week)</div>
-      <div class="frow"><label>${svgIcon('basket',16)}Days</label>${dayBtns('laundry.days', S.laundry.days)}</div>
-      <div class="frow"><label>Who</label>
-        ${pBtn(S.laundry.owner, `data-act="flip" data-path="laundry.owner"`)}</div>
-    </div>
-
-    <div class="secCard">
-      <div class="sec">Mopping (weekly)</div>
-      <div class="frow"><label>${svgIcon('droplets',16)}Day</label>${dSelFull('mop.day', S.mop.day)}
-        ${segBtns('mop.mode', [{v:'rotate',label:'Alternate'},{v:'fixed',label:'Fixed'}], S.mop.mode)}</div>
-      <div class="frow"><label>${S.mop.mode==='fixed' ? 'Who' : 'Next · '+fmtShort(mopNext)}</label>
-        ${S.mop.mode==='fixed'
-          ? pBtn(S.mop.first, `data-act="flip" data-path="mop.first"`)
-          : pBtn(mopWho, `data-act="flipd" data-kind="mop"`)}</div>
-    </div>
-
-    <div class="secCard">
-      <div class="sec">Bathroom (biweekly)</div>
-      <div class="frow"><label>${svgIcon('toilet',16)}Day</label>${dSelFull('bathroomClean.day', bath.day)}</div>
-      <div class="frow"><label>Next</label>
-        ${segBtns('bathroomClean.startWeek',
-          [{v:mod(weekIndex(bathC1),2), label:fmtShort(bathC1)},
-           {v:mod(weekIndex(bathC2),2), label:fmtShort(bathC2)}],
-          bath.startWeek, 'data-num="1"')}</div>
-      <div class="frow"><label>Who</label>
-        ${pBtn(bath.owner, `data-act="flip" data-path="bathroomClean.owner"`)}</div>
-    </div>
-
-    <div class="secCard">
-      <div class="sec">Bedding (biweekly)</div>
-      <div class="frow"><label>${svgIcon('bed',16)}Day</label>${dSelFull('bedding.day', S.bedding.day)}</div>
-      <div class="frow"><label>Next</label>
-        ${segBtns('bedding.startWeek',
-          [{v:mod(weekIndex(bedC1),2), label:fmtShort(bedC1)},
-           {v:mod(weekIndex(bedC2),2), label:fmtShort(bedC2)}],
-          S.bedding.startWeek, 'data-num="1"')}</div>
-      <div class="frow"><label>Who</label>
-        ${pBtn(S.bedding.owner, `data-act="flip" data-path="bedding.owner"`)}</div>
-    </div>
-
-    <div class="secCard">
-      <div class="sec">Fridge (monthly)</div>
-      <div class="frow"><label>${svgIcon('fridge',16)}Every</label>
-        ${nSelM('fridge.nth', S.fridge.nth)} ${dSelFull('fridge.day', S.fridge.day)}</div>
-      <div class="frow"><label>Next · ${fmtShort(frNext)}</label>
-        ${pBtn(frWho, `data-act="flipd" data-kind="fridge"`)}</div>
-    </div>
+    <div class="sec secTop">Chores</div>
+    ${(S.chores||[]).map(choreCard).join('')}
+    <button class="addChore" data-act="cadd">+ Add chore</button>
 
     <div class="secCard">
       <div class="sec">Display</div>
@@ -607,12 +585,33 @@ export function initSettings(){
     }
     if(act==='accent'){ S.accent = b.dataset.v; commitSettings(); }
     else if(act==='flip'){ setPath(S, b.dataset.path, otherOf(getPath(S, b.dataset.path))); commitSettings(); }
-    else if(act==='flipd'){ flipDerived(b.dataset.kind); commitSettings(); }
+    // ---- 집안일 카드 ----
+    else if(act==='freq'){
+      const c = S.chores[+b.dataset.i];
+      if(c && c.freq !== b.dataset.v){ c.freq = b.dataset.v; fillFreq(c); commitSettings(); }
+    }
+    else if(act==='cflip'){ const c = S.chores[+b.dataset.i]; if(c){ flipRotation(c); commitSettings(); } }
+    else if(act==='cdel'){
+      const c = S.chores[+b.dataset.i];
+      // 완료 기록(date|chore_id)은 지우지 않는다 — 되살리면 과거 체크가 그대로 보인다
+      if(c && confirm(`Remove "${c.name}" from the board?`)){ S.chores.splice(+b.dataset.i, 1); commitSettings(); }
+    }
+    else if(act==='cadd'){
+      S.chores.push(fillFreq({
+        id:'c' + Date.now().toString(36), name:'New chore', icon:'broom',
+        freq:'weekly', days:[new Date().getDay()], owner:'A',
+      }));
+      commitSettings();
+      const cards = $('#dlg').querySelectorAll('.chCard .chName');
+      const last = cards[cards.length-1];
+      if(last){ last.focus(); last.select(); }        // 바로 이름부터 치게
+    }
     else if(act==='seg'){
       let v = b.dataset.v;
       if(b.dataset.num) v = Number(v);
       if(b.dataset.bool) v = v==='1';
       setPath(S, b.dataset.k, v);
+      if(b.dataset.k.endsWith('.owner')) fillFreq(getPath(S, b.dataset.k.slice(0, -6)));  // rotate → first 채움
       commitSettings();
     }
     else if(act==='days'){
@@ -629,5 +628,19 @@ export function initSettings(){
   $('#dlg').addEventListener('change', e=>{
     const el = e.target;
     if(el.dataset && el.dataset.sel){ setPath(S, el.dataset.sel, Number(el.value)); commitSettings(); }
+    else if(el.dataset && el.dataset.txt){ pushSettingsCloud(); }   // 이름 편집 끝 → 클라우드에도 반영
+  });
+
+  // 집안일 이름은 한 글자마다 반영하되 설정창은 다시 그리지 않는다 (커서가 튀므로)
+  $('#dlg').addEventListener('input', e=>{
+    const el = e.target;
+    if(!el.dataset || !el.dataset.txt) return;
+    setPath(S, el.dataset.txt, el.value);
+    if(el.dataset.txt.endsWith('.name')){
+      const c = getPath(S, el.dataset.txt.slice(0, -5));
+      delete c.short;                     // 달력 축약 라벨은 새 이름에서 다시 만든다
+    }
+    saveSettings();
+    renderAll();
   });
 }

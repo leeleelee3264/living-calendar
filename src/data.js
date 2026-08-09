@@ -8,15 +8,31 @@ export const MON_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'
 export const MON_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 export const NTH = ['1st', '2nd', '3rd', '4th'];
 
-// 집안일 정의 (id → 라인아이콘 이름/이름/주기/매일 여부/달력 축약 라벨)
-export const CHORES = {
-  trashBathroom:{icon:'trash',    name:'Empty bathroom bin',   freq:'Daily', daily:true},
-  makeBed:      {icon:'bed',      name:'Make the bed',         freq:'Daily', daily:true},
-  trashRecycle: {icon:'recycle',  name:'Trash · recycling',    freq:'3×/week',                short:'Trash'},
-  vacuum:       {icon:'broom',    name:'Vacuum',               freq:'3×/week',                short:'Vac'},
-  laundry:      {icon:'basket',   name:'Laundry',              freq:'3×/week · wash to fold', short:'Laundry'},
-  mop:          {icon:'droplets', name:'Mopping',              freq:'Weekly',                 short:'Mop'},
-  bathroomClean:{icon:'toilet',   name:'Clean bathroom',       freq:'Biweekly',               short:'Bath'},
-  bedding:      {icon:'bed',      name:'Change · wash bedding',freq:'Biweekly',               short:'Bedding'},
-  fridge:       {icon:'fridge',   name:'Clean fridge',         freq:'Monthly · alternating',  short:'Fridge'},
+// 집안일의 이름·아이콘·주기·담당은 이제 전부 설정(S.chores)에 들어 있다.
+// 아래는 구 스키마(집안일이 코드에 박혀 있던 시절)를 설정으로 옮길 때 쓰는 이름·아이콘 씨앗.
+export const LEGACY_CHORES = {
+  trashBathroom:{icon:'trash',    name:'Empty bathroom bin',    short:'Bin'},
+  makeBed:      {icon:'bed',      name:'Make the bed',          short:'Bed'},
+  trashRecycle: {icon:'recycle',  name:'Trash · recycling',     short:'Trash'},
+  vacuum:       {icon:'broom',    name:'Vacuum',                short:'Vac'},
+  laundry:      {icon:'basket',   name:'Laundry',               short:'Laundry'},
+  mop:          {icon:'droplets', name:'Mopping',               short:'Mop'},
+  bathroomClean:{icon:'toilet',   name:'Clean bathroom',        short:'Bath'},
+  bedding:      {icon:'bed',      name:'Change · wash bedding', short:'Bedding'},
+  fridge:       {icon:'fridge',   name:'Clean fridge',          short:'Fridge'},
 };
+
+// 주기 선택지 — 스케줄 엔진이 아는 값 + 설정 세그먼트 라벨
+export const FREQS = [
+  {v:'daily',    label:'Daily'},
+  {v:'weekly',   label:'Weekly'},
+  {v:'biweekly', label:'2 weeks'},
+  {v:'monthly',  label:'Monthly'},
+];
+
+// 집안일 아이콘 후보 (설정에서 고른다)
+// ⚠️ Material Symbols 에 실제로 있는 이름만 — 없는 이름은 글자 그대로 렌더된다 ('sink' 사고)
+export const CHORE_ICONS = [
+  'trash','recycle','broom','bed','basket','droplets','toilet','fridge',
+  'dishes','cart','plant','pets','iron','window','tools','soap',
+];
