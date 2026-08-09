@@ -195,7 +195,8 @@ export function renderCalendar(){
     // 매일 하는 건 달력에 안 띄운다 (매일 뜨면 정보가 아님)
     const items = choresFor(d).filter(c=>{ const def = choreDef(c.id); return def && def.freq!=='daily'; });
     const evs = eventsFor(d);
-    const MAXMINI = 4;                       // 넘치면 마지막을 +N 으로 (셀 높이 넘침 방지)
+    // 셀 높이가 고정이라 돈 일정이 한 줄 차지하는 날은 집안일을 그만큼 덜 보여준다 (넘치면 +N)
+    const MAXMINI = evs.length ? 2 : 4;
     const shown = items.length > MAXMINI ? items.slice(0, MAXMINI-1) : items;
     let minis = shown.map(c=>{
       const col = S.people[c.who].color;
@@ -209,13 +210,15 @@ export function renderCalendar(){
     const perfect = allDone(d);
     const cls = [ds===todayStr ? 'today' : '', perfect ? 'perfect' : ''].join(' ').trim();
     const party = perfect ? `<span class="wow" aria-label="All done">${PARTY}</span>` : '';
-    // 돈 일정(12일 입금 · 28일 월세)은 집안일 알약과 섞이지 않게 날짜 옆 한 칸에 둔다.
-    // 집안일 위/아래에 줄로 넣으면 셀 높이가 고정이라 할일 많은 날 둘 중 하나가 잘린다
-    const evtHTML = evs.map(e=>`<span class="evt">${esc(e.short)}</span>`).join('');
+    // 돈 일정(12일 입금 · 28일 월세)은 날짜 바로 밑에 한 줄 바로 깔고,
+    // 그 아래로 한 줄 띄워서 집안일 알약이 붙는다 (섞여 보이지 않게)
+    const evtHTML = evs.length
+      ? `<div class="evts">${evs.map(e=>`<span class="evt">${esc(e.short)}</span>`).join('')}</div>` : '';
     html += `<div class="cell ${cls}" onclick="openSheet('${ds}')">
       ${party}
-      <div class="dnRow"><span class="dn ${wd===0?'sun':wd===6?'sat':''}">${day}</span>${evtHTML}</div>
-      <div class="minis${dense}">${minis}</div></div>`;
+      <div class="dn ${wd===0?'sun':wd===6?'sat':''}">${day}</div>
+      ${evtHTML}
+      <div class="minis${dense}${evs.length?' afterEvt':''}">${minis}</div></div>`;
   }
   $('#calGrid').innerHTML = html;
   // 같이 살기 전(2026-07 이전)으로는 못 넘어간다
