@@ -156,6 +156,36 @@ setInterval(refreshWeather, 1800000);   // 날씨 30분마다
 syncFromCloud();                        // 클라우드 동기화 즉시 1회
 setInterval(syncFromCloud, 60000);      // 60초마다 폰↔태블릿 수렴
 
+/* ---------- 새 배포 자동 반영 ----------
+   벽 태블릿은 앱을 24시간 띄워둬서 스스로 다시 받아오는 일이 없다 → 배포해도
+   손으로 새로고침하기 전까진 며칠이고 옛 버전이 돈다.
+   GitHub Pages 의 ETag 는 `"<배포시각>-<파일크기>"` 라 배포마다 값이 바뀐다.
+   index.html 것만 주기적으로 확인해 달라졌으면 새 배포로 보고 리로드한다.
+   ※ Pages 는 모든 파일에 max-age=600 을 걸어서 그냥 reload 하면 10분간 옛 JS 가
+     캐시에서 나올 수 있다 → cache:'reload' 로 캐시를 먼저 갱신해 두고 리로드. */
+const ASSETS = ['index.html', 'styles.css', 'src/main.js', 'src/ui.js', 'src/core.js',
+                'src/data.js', 'src/storage.js', 'src/weather.js',
+                'src/livingAccount.js', 'src/supabase.js'];
+let buildTag = null;
+
+async function liveTag(){
+  try{
+    const r = await fetch('index.html', { method:'HEAD', cache:'no-store' });
+    return r.headers.get('etag') || r.headers.get('last-modified');
+  }catch(e){ return null; }            // 오프라인이면 조용히 넘어간다
+}
+async function checkUpdate(){
+  const tag = await liveTag();
+  if(!tag) return;
+  if(buildTag === null){ buildTag = tag; return; }   // 첫 확인 = 기준값
+  if(tag === buildTag) return;
+  if(syncBusy()) return;               // 입력/설정 중이면 다음 차례에 (입력 날리지 않기)
+  await Promise.allSettled(ASSETS.map(u => fetch(u, { cache:'reload' })));
+  location.reload();
+}
+checkUpdate();
+setInterval(checkUpdate, 120000);      // 2분마다
+
 // 심야 모드 깨우기: 어떤 터치든 마지막 터치 시점부터 1분 유지
 document.addEventListener('pointerdown', wakeSleep);
 
@@ -163,7 +193,9 @@ document.addEventListener('pointerdown', wakeSleep);
 async function keepAwake(){
   try{ if('wakeLock' in navigator) await navigator.wakeLock.request('screen'); }catch(e){}
 }
-document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ keepAwake(); syncFromCloud(); } });
+document.addEventListener('visibilitychange', ()=>{
+  if(!document.hidden){ keepAwake(); syncFromCloud(); checkUpdate(); }
+});
 keepAwake();
 
 renderAll();

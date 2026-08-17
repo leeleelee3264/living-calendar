@@ -416,6 +416,13 @@ function exitFull(){
   const fn = document.exitFullscreen || document.webkitExitFullscreen;
   if(fn){ try{ fn.call(document); }catch(e){} }
 }
+// 홈 화면에 설치된 PWA 는 이미 전체화면이다. 여기서 requestFullscreen 을 부르면
+// 사파리의 전체화면 UI(모서리 X 버튼)만 덧씌워져서 오히려 방해가 된다 → 줄 자체를 감춘다.
+// (사파리 탭에서 열었을 땐 여전히 쓸모 있으므로 그대로 보여준다)
+function isInstalled(){
+  return navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+}
 
 function getPath(o, p){ return p.split('.').reduce((x,k)=>x[k], o); }
 function setPath(o, p, v){
@@ -495,8 +502,8 @@ function renderSettingsBody(){
       <div class="frow"><label>${svgIcon('sun',16)}Theme</label>
         ${segBtns('theme', [{v:'auto',label:'Auto'},{v:'light',label:'Light'},{v:'dark',label:'Dark'}], S.theme)}</div>
       <p class="help">Auto follows the time of day — light by day, dark from 6 PM.</p>
-      <div class="frow"><label>${svgIcon('expand',16)}Fullscreen</label>
-        <button class="fullBtn" data-act="full">${isFull?'Off':'On'}</button></div>
+      ${isInstalled() ? '' : `<div class="frow"><label>${svgIcon('expand',16)}Fullscreen</label>
+        <button class="fullBtn" data-act="full">${isFull?'Off':'On'}</button></div>`}
       <div class="frow"><label>Accent</label>
         <span class="swatches">${ACCENTS.map(c=>
           `<button class="sw ${S.accent===c?'on':''}" data-act="accent" data-v="${c}" style="background:${c}" aria-label="${c}"></button>`).join('')}</span></div>
